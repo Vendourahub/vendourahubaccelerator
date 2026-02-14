@@ -1,0 +1,40 @@
+═══════════════════════════════════════════════════════════════════════════════
+🚨 YOUR APP IS BROKEN BECAUSE YOU HAVEN'T SET UP THE DATABASE YET 🚨
+═══════════════════════════════════════════════════════════════════════════════
+
+SEEING "Could not find table" ERRORS?
+
+YOU NEED TO RUN THE SQL SETUP SCRIPT FIRST!
+
+═══════════════════════════════════════════════════════════════════════════════
+🚀 QUICK FIX (Takes 2 minutes)
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 1: Open this link
+👉 https://supabase.com/dashboard/project/idhyjerrdrcaitfmbtjd/sql/new
+
+STEP 2: Copy /QUICK_FIX.sql
+- Open the file: /QUICK_FIX.sql
+- Select ALL (Ctrl+A or Cmd+A)
+- Copy ALL (Ctrl+C or Cmd+C)
+
+STEP 3: Paste & Run
+- Paste into Supabase SQL Editor
+- Click "RUN" button
+- Wait for "SUCCESS!" message
+- Refresh your Vendoura page
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ DONE! Your app will work now.
+═══════════════════════════════════════════════════════════════════════════════
+
+For detailed instructions, open:
+- /SETUP_INSTRUCTIONS.html (Open in browser - has visual guide)
+- /START_HERE.md (Detailed step-by-step)
+- /README.md (Quick overview)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+⚠️  YOUR APP WILL NOT WORK UNTIL YOU COMPLETE THESE 3 STEPS ⚠️
+
+═══════════════════════════════════════════════════════════════════════════════

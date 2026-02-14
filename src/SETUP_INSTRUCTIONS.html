@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendoura Hub - Database Setup Required</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #fee2e2 0%, #fed7aa 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            max-width: 900px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #dc2626 0%, #ea580c 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        .header .emoji {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+        .content {
+            padding: 40px;
+        }
+        .alert {
+            background: #fef2f2;
+            border: 2px solid #dc2626;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .alert h2 {
+            color: #dc2626;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+        .alert ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .alert li {
+            padding: 5px 0;
+            color: #991b1b;
+        }
+        .alert li::before {
+            content: "✗ ";
+            color: #dc2626;
+            font-weight: bold;
+        }
+        .steps {
+            margin: 30px 0;
+        }
+        .step {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        .step-number {
+            background: white;
+            color: #2563eb;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .step h3 {
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+        .step p {
+            opacity: 0.9;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        .step code {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+        }
+        .step ol {
+            margin-top: 10px;
+            padding-left: 20px;
+        }
+        .step li {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+        .button {
+            display: inline-block;
+            background: white;
+            color: #2563eb;
+            padding: 15px 30px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 15px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+        }
+        .success-box {
+            background: #f0fdf4;
+            border: 2px solid #16a34a;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 30px;
+        }
+        .success-box h3 {
+            color: #16a34a;
+            margin-bottom: 10px;
+        }
+        .checklist {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+        .checklist h3 {
+            margin-bottom: 15px;
+        }
+        .checklist label {
+            display: block;
+            padding: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .checklist input[type="checkbox"] {
+            margin-right: 10px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="emoji">⚠️</div>
+            <h1>Database Setup Required</h1>
+            <p>Your Vendoura Hub database tables are missing</p>
+        </div>
+
+        <div class="content">
+            <div class="alert">
+                <h2>❌ Missing Tables</h2>
+                <ul>
+                    <li>system_settings</li>
+                    <li>founder_profiles</li>
+                    <li>waitlist</li>
+                    <li>admin_users</li>
+                    <li>weekly_commits</li>
+                    <li>weekly_reports</li>
+                </ul>
+            </div>
+
+            <h2 style="text-align: center; margin-bottom: 30px; font-size: 32px;">🚀 Fix in 3 Steps (2 Minutes)</h2>
+
+            <div class="steps">
+                <!-- Step 1 -->
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Open Supabase SQL Editor</h3>
+                    <p>Click this button to open the SQL Editor in a new tab:</p>
+                    <a href="https://supabase.com/dashboard/project/idhyjerrdrcaitfmbtjd/sql/new" 
+                       target="_blank" 
+                       class="button">
+                        🔗 Open SQL Editor Now →
+                    </a>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Copy the Setup Script</h3>
+                    <p>Open this file in your code editor: <code>/QUICK_FIX.sql</code></p>
+                    <ol>
+                        <li>Open <code>/QUICK_FIX.sql</code> in VS Code or your editor</li>
+                        <li>Select ALL text (Ctrl+A on Windows, Cmd+A on Mac)</li>
+                        <li>Copy ALL text (Ctrl+C on Windows, Cmd+C on Mac)</li>
+                    </ol>
+                    <p style="margin-top: 15px;">⚠️ <strong>Important:</strong> Copy the ENTIRE file (all ~300 lines)</p>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Paste & Run</h3>
+                    <ol>
+                        <li>Go back to the Supabase SQL Editor tab</li>
+                        <li>Paste the script (Ctrl+V or Cmd+V)</li>
+                        <li>Click the big <strong>"RUN"</strong> button</li>
+                        <li>Wait 5-10 seconds for it to complete</li>
+                        <li>Look for "✅ SUCCESS!" message at the bottom</li>
+                        <li>Refresh your Vendoura Hub page</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="success-box">
+                <h3>✅ How to Know It Worked</h3>
+                <p>After running the script and refreshing your app:</p>
+                <ul style="list-style: none; padding: 0; margin-top: 10px;">
+                    <li>✅ No more "Could not find table" errors</li>
+                    <li>✅ The app loads normally</li>
+                    <li>✅ You see data or empty states (not errors)</li>
+                </ul>
+            </div>
+
+            <div class="checklist">
+                <h3>📋 Checklist</h3>
+                <label><input type="checkbox"> Opened Supabase SQL Editor</label>
+                <label><input type="checkbox"> Opened /QUICK_FIX.sql file</label>
+                <label><input type="checkbox"> Selected ALL text (Ctrl+A / Cmd+A)</label>
+                <label><input type="checkbox"> Copied ALL text (Ctrl+C / Cmd+C)</label>
+                <label><input type="checkbox"> Pasted into SQL Editor</label>
+                <label><input type="checkbox"> Clicked RUN button</label>
+                <label><input type="checkbox"> Saw "SUCCESS!" message</label>
+                <label><input type="checkbox"> Refreshed Vendoura page</label>
+                <label><input type="checkbox"> Errors are gone ✅</label>
+            </div>
+
+            <div style="margin-top: 40px; padding: 20px; background: #fef3c7; border-radius: 12px; border-left: 4px solid #f59e0b;">
+                <h3 style="color: #92400e; margin-bottom: 10px;">💡 Need Help?</h3>
+                <p style="color: #78350f; margin-bottom: 5px;">For detailed instructions with screenshots, open:</p>
+                <ul style="color: #78350f; margin-left: 20px;">
+                    <li><code>/START_HERE.md</code></li>
+                    <li><code>/FIX_ALL_ERRORS.md</code></li>
+                    <li><code>/README.md</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
