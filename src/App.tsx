@@ -1,5 +1,5 @@
 import { RouterProvider } from "react-router";
-import { router } from "./routes";
+import { router } from "./routes.tsx";
 import { Toaster } from "sonner@2.0.3";
 import { useEffect } from "react";
 import { initializeStorage } from "./lib/localStorage";
