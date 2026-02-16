@@ -3,8 +3,7 @@ import { useState, useEffect } from "react";
 import React from "react";
 import { AlertCircle, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { signUpFounder } from "../lib/authManager";
-import { submitApplication, joinWaitlist } from "../lib/api";
-import * as storage from "../lib/localStorage";
+import { submitApplication, joinWaitlist, supabase } from "../lib/api";
 import logoImage from '../assets/ffa6cb3f0d02afe82155542d62a0d3bbbbcaa910.png';
 
 export default function Application() {
@@ -31,8 +30,18 @@ export default function Application() {
   useEffect(() => {
     const checkProgramStatus = async () => {
       try {
-        const settings = storage.getSettings();
-        setProgramActive(settings.applications_open ?? true);
+        const { data, error } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'applications_open')
+          .single();
+
+        if (error) {
+          console.error('Error fetching settings:', error);
+          setProgramActive(true); // Default to active if error
+        } else {
+          setProgramActive(data?.value === true || data?.value === 'true');
+        }
       } catch (err) {
         console.error('Error:', err);
         setProgramActive(true); // Default to active if error
@@ -77,8 +86,8 @@ export default function Application() {
     }
 
     try {
-      // Create account using localStorage auth
-      const result = await signUp(
+      // Create account using Supabase auth
+      const result = await signUpFounder(
         formData.email,
         formData.password,
         {
@@ -128,7 +137,7 @@ export default function Application() {
   const handleGoogleSignup = async () => {
     try {
       setIsLoading(true);
-      setError('OAuth authentication is not available in localStorage-only mode. Please use email/password signup.');
+      setError('OAuth authentication coming soon. Please use email/password signup for now.');
     } catch (err: any) {
       console.error('Google signup error:', err);
       setError(err.message || 'Google sign up failed');
@@ -139,7 +148,7 @@ export default function Application() {
   const handleLinkedInSignup = async () => {
     try {
       setIsLoading(true);
-      setError('OAuth authentication is not available in localStorage-only mode. Please use email/password signup.');
+      setError('OAuth authentication coming soon. Please use email/password signup for now.');
     } catch (err: any) {
       console.error('LinkedIn signup error:', err);
       setError(err.message || 'LinkedIn sign up failed');

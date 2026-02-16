@@ -1,9 +1,9 @@
 /**
- * Unified Authentication Manager
+ * Unified Authentication Manager - Supabase Integration
  * Centralized auth logic for both founders and admins
  */
 
-import * as storage from './localStorage';
+import { supabase } from './api';
 
 // ============================================================================
 // TYPES
@@ -49,22 +49,56 @@ export async function signUpFounder(
   metadata: any
 ): Promise<FounderAuthResult> {
   try {
-    const result = await storage.signUp(email, password, metadata);
-    
-    if (result.success && result.user) {
-      const profile = storage.getFounder(result.user.id);
-      return {
-        success: true,
-        user: {
-          id: result.user.id,
-          email: result.user.email,
+    // Sign up with Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
           user_type: 'founder',
+          ...metadata,
         },
-        profile,
-      };
+      },
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
     }
-    
-    return { success: false, error: result.error || 'Sign up failed' };
+
+    if (!data.user) {
+      return { success: false, error: 'Sign up failed' };
+    }
+
+    // Create founder profile
+    const { data: profile, error: profileError } = await supabase
+      .from('founder_profiles')
+      .insert({
+        user_id: data.user.id,
+        email: data.user.email,
+        name: metadata.name || '',
+        business_name: metadata.business_name || '',
+        business_description: metadata.business_description || '',
+        business_stage: metadata.business_stage || '',
+        revenue: metadata.revenue || '',
+        phone: metadata.phone || '',
+        country: metadata.country || '',
+      })
+      .select()
+      .single();
+
+    if (profileError) {
+      console.error('Profile creation error:', profileError);
+    }
+
+    return {
+      success: true,
+      user: {
+        id: data.user.id,
+        email: data.user.email!,
+        user_type: 'founder',
+      },
+      profile,
+    };
   } catch (error: any) {
     console.error('Founder signup error:', error);
     return { success: false, error: error.message || 'Sign up failed' };
@@ -79,29 +113,39 @@ export async function signInFounder(
   password: string
 ): Promise<FounderAuthResult> {
   try {
-    const result = await storage.signIn(email, password);
-    
-    if (result.success && result.user) {
-      // Verify it's a founder
-      if (result.user.user_type !== 'founder') {
-        await storage.signOut();
-        return { success: false, error: 'Invalid founder account' };
-      }
-      
-      const profile = storage.getFounder(result.user.id);
-      
-      return {
-        success: true,
-        user: {
-          id: result.user.id,
-          email: result.user.email,
-          user_type: 'founder',
-        },
-        profile,
-      };
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
     }
-    
-    return { success: false, error: result.error || 'Sign in failed' };
+
+    if (!data.user) {
+      return { success: false, error: 'Sign in failed' };
+    }
+
+    // Get founder profile
+    const { data: profile, error: profileError } = await supabase
+      .from('founder_profiles')
+      .select('*')
+      .eq('user_id', data.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return { success: false, error: 'Founder profile not found. Please use admin login if you are an admin.' };
+    }
+
+    return {
+      success: true,
+      user: {
+        id: data.user.id,
+        email: data.user.email!,
+        user_type: 'founder',
+      },
+      profile,
+    };
   } catch (error: any) {
     console.error('Founder signin error:', error);
     return { success: false, error: error.message || 'Sign in failed' };
@@ -116,34 +160,56 @@ export async function signInAdmin(
   password: string
 ): Promise<AdminAuthResult> {
   try {
-    const result = await storage.signIn(email, password);
+    console.log('🔐 Attempting admin sign in for:', email);
     
-    if (result.success && result.user) {
-      // Verify it's an admin
-      if (result.user.user_type !== 'admin') {
-        await storage.signOut();
-        return { success: false, error: 'Access denied. Admin privileges required.' };
-      }
-      
-      const admin = storage.getAdmin(result.user.id);
-      if (!admin) {
-        return { success: false, error: 'Admin profile not found' };
-      }
-      
-      return {
-        success: true,
-        user: {
-          id: result.user.id,
-          email: result.user.email,
-          user_type: 'admin',
-        },
-        admin,
-      };
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.error('❌ Supabase auth error:', error);
+      return { success: false, error: error.message };
     }
-    
-    return { success: false, error: result.error || 'Sign in failed' };
+
+    if (!data.user) {
+      console.error('❌ No user data returned');
+      return { success: false, error: 'Sign in failed' };
+    }
+
+    console.log('✅ Auth successful, user ID:', data.user.id);
+    console.log('📊 Fetching admin profile...');
+
+    // Get admin profile
+    const { data: admin, error: adminError } = await supabase
+      .from('admin_users')
+      .select('*')
+      .eq('user_id', data.user.id)
+      .single();
+
+    if (adminError) {
+      console.error('❌ Admin profile fetch error:', adminError);
+      return { success: false, error: 'Access denied. Admin privileges required.' };
+    }
+
+    if (!admin) {
+      console.error('❌ No admin profile found for user:', data.user.id);
+      return { success: false, error: 'Access denied. Admin privileges required.' };
+    }
+
+    console.log('✅ Admin profile found:', admin.admin_role);
+
+    return {
+      success: true,
+      user: {
+        id: data.user.id,
+        email: data.user.email!,
+        user_type: 'admin',
+      },
+      admin,
+    };
   } catch (error: any) {
-    console.error('Admin signin error:', error);
+    console.error('❌ Admin signin error:', error);
     return { success: false, error: error.message || 'Sign in failed' };
   }
 }
@@ -151,18 +217,26 @@ export async function signInAdmin(
 /**
  * Get current authenticated user (founder or admin)
  */
-export function getCurrentUser(): AuthUser | null {
+export async function getCurrentUser(): Promise<AuthUser | null> {
   try {
-    const stored = localStorage.getItem('vendoura_current_user');
-    if (!stored) return null;
-    
-    const user = JSON.parse(stored);
-    if (!user.id || !user.email) return null;
-    
+    const { data: { user }, error } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      return null;
+    }
+
+    // Check if admin
+    const { data: admin } = await supabase
+      .from('admin_users')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
     return {
       id: user.id,
-      email: user.email,
-      user_type: user.user_type,
+      email: user.email!,
+      user_type: admin ? 'admin' : 'founder',
+      user_metadata: user.user_metadata,
     };
   } catch {
     return null;
@@ -172,57 +246,78 @@ export function getCurrentUser(): AuthUser | null {
 /**
  * Get current founder profile (if logged in as founder)
  */
-export function getCurrentFounder(): any | null {
-  const user = getCurrentUser();
-  if (!user || user.user_type !== 'founder') return null;
-  
-  return storage.getFounder(user.id) || null;
+export async function getCurrentFounder(): Promise<any | null> {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) return null;
+
+    const { data: profile } = await supabase
+      .from('founder_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    return profile || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Get current admin profile (if logged in as admin)
  */
-export function getCurrentAdmin(): any | null {
-  const user = getCurrentUser();
-  if (!user || user.user_type !== 'admin') return null;
-  
-  return storage.getAdmin(user.id) || null;
+export async function getCurrentAdmin(): Promise<any | null> {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) return null;
+
+    const { data: admin } = await supabase
+      .from('admin_users')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    return admin || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Check if user is authenticated as founder
  */
-export function isFounderAuthenticated(): boolean {
-  const user = getCurrentUser();
+export async function isFounderAuthenticated(): Promise<boolean> {
+  const user = await getCurrentUser();
   return user?.user_type === 'founder';
 }
 
 /**
  * Check if user is authenticated as admin
  */
-export function isAdminAuthenticated(): boolean {
-  const user = getCurrentUser();
+export async function isAdminAuthenticated(): Promise<boolean> {
+  const user = await getCurrentUser();
   return user?.user_type === 'admin';
 }
 
 /**
  * Get admin role (if logged in as admin)
  */
-export function getAdminRole(): string | null {
-  const admin = getCurrentAdmin();
+export async function getAdminRole(): Promise<string | null> {
+  const admin = await getCurrentAdmin();
   return admin?.admin_role || null;
 }
 
 /**
  * Check if current admin is super admin
  */
-export function isSuperAdmin(): boolean {
-  return getAdminRole() === 'super_admin';
+export async function isSuperAdmin(): Promise<boolean> {
+  const role = await getAdminRole();
+  return role === 'super_admin';
 }
 
 /**
  * Sign out current user (founder or admin)
  */
 export async function signOut(): Promise<void> {
-  storage.signOut();
+  await supabase.auth.signOut();
 }

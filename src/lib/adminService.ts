@@ -1,21 +1,32 @@
 /**
- * Admin Service - LocalStorage Based
+ * Admin Service - Supabase Integration
  * Provides admin-level operations for managing founders, cohorts, and system settings
  */
 
-import * as storage from './localStorage';
-import { getCurrentAdmin } from './adminAuth';
+import { supabase } from './api';
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
-function ensureAdminAuth() {
-  const admin = getCurrentAdmin();
-  if (!admin) {
+async function ensureAdminAuth() {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) {
     console.error('❌ No admin session found');
     throw new Error('Not authenticated as admin');
   }
+
+  // Verify admin status
+  const { data: admin, error: adminError } = await supabase
+    .from('admin_users')
+    .select('*')
+    .eq('user_id', user.id)
+    .single();
+
+  if (adminError || !admin) {
+    throw new Error('Access denied. Admin privileges required.');
+  }
+
   return admin;
 }
 
@@ -27,34 +38,19 @@ export const adminService = {
   // Get all founders
   async getAllFounders() {
     try {
-      ensureAdminAuth();
-      const founders = storage.getAllFounders();
+      await ensureAdminAuth();
       
-      // Map to expected format with additional fields
-      return founders.map(f => ({
-        id: f.id,
-        email: f.email,
-        name: f.name,
-        business_name: f.business_name,
-        business_description: f.business_description,
-        business_stage: f.business_stage,
-        business_model: f.business_stage, // Map to business_model for compatibility
-        revenue: f.revenue,
-        phone: f.phone,
-        country: f.country,
-        created_at: f.created_at,
-        onboarding_completed: f.onboarding_completed,
-        // Program tracking fields (with defaults)
-        current_stage: 1,
-        current_week: 1,
-        consecutive_misses: 0,
-        baseline_revenue_30d: parseFloat(f.revenue?.replace(/[^0-9.-]/g, '') || '0'),
-        baseline_revenue_90d: parseFloat(f.revenue?.replace(/[^0-9.-]/g, '') || '0'),
-        is_locked: false,
-        lock_reason: null,
-        subscription_status: 'active',
-        subscription_expiry: null,
-      }));
+      const { data, error } = await supabase
+        .from('founder_profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching founders:', error);
+        return [];
+      }
+
+      return data || [];
     } catch (error) {
       console.error('Error fetching founders:', error);
       return [];
@@ -64,36 +60,20 @@ export const adminService = {
   // Get single founder by ID
   async getFounder(founderId: string) {
     try {
-      ensureAdminAuth();
-      const founder = storage.getFounder(founderId);
+      await ensureAdminAuth();
       
-      if (!founder) {
+      const { data, error } = await supabase
+        .from('founder_profiles')
+        .select('*')
+        .eq('id', founderId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching founder:', error);
         return null;
       }
-      
-      return {
-        id: founder.id,
-        email: founder.email,
-        name: founder.name,
-        business_name: founder.business_name,
-        business_description: founder.business_description,
-        business_stage: founder.business_stage,
-        business_model: founder.business_stage,
-        revenue: founder.revenue,
-        phone: founder.phone,
-        country: founder.country,
-        created_at: founder.created_at,
-        onboarding_completed: founder.onboarding_completed,
-        current_stage: 1,
-        current_week: 1,
-        consecutive_misses: 0,
-        baseline_revenue_30d: parseFloat(founder.revenue?.replace(/[^0-9.-]/g, '') || '0'),
-        baseline_revenue_90d: parseFloat(founder.revenue?.replace(/[^0-9.-]/g, '') || '0'),
-        is_locked: false,
-        lock_reason: null,
-        subscription_status: 'active',
-        subscription_expiry: null,
-      };
+
+      return data;
     } catch (error) {
       console.error('Error fetching founder:', error);
       return null;
@@ -103,8 +83,19 @@ export const adminService = {
   // Get all admins
   async getAllAdmins() {
     try {
-      ensureAdminAuth();
-      return storage.getAllAdmins();
+      await ensureAdminAuth();
+      
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching admins:', error);
+        return [];
+      }
+
+      return data || [];
     } catch (error) {
       console.error('Error fetching admins:', error);
       return [];
@@ -114,16 +105,16 @@ export const adminService = {
   // Get cohort analytics
   async getCohortAnalytics(cohortId?: string) {
     try {
-      ensureAdminAuth();
+      await ensureAdminAuth();
       const founders = await this.getAllFounders();
       
       // Calculate analytics from founder data
       const totalFounders = founders.length;
-      const activeFounders = founders.filter(f => f.subscription_status === 'active').length;
+      const activeFounders = founders.filter(f => f.subscription_status === 'active' || f.subscription_status === 'trial').length;
       const atRiskFounders = founders.filter(f => f.consecutive_misses >= 1).length;
       const lockedFounders = founders.filter(f => f.is_locked).length;
       
-      const totalRevenue = founders.reduce((sum, f) => sum + (f.baseline_revenue_30d || 0), 0);
+      const totalRevenue = founders.reduce((sum, f) => sum + (Number(f.baseline_revenue_30d) || 0), 0);
       const avgRevenue = totalFounders > 0 ? totalRevenue / totalFounders : 0;
       
       return {
@@ -154,9 +145,24 @@ export const adminService = {
   // Get system settings
   async getSystemSettings() {
     try {
-      ensureAdminAuth();
-      const settings = storage.getSettings();
-      return settings || getDefaultSettings();
+      await ensureAdminAuth();
+      
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('*');
+
+      if (error) {
+        console.error('Error fetching settings:', error);
+        return getDefaultSettings();
+      }
+
+      // Convert array of key-value pairs to object
+      const settingsObj: any = {};
+      data?.forEach(item => {
+        settingsObj[item.key] = item.value;
+      });
+
+      return { ...getDefaultSettings(), ...settingsObj };
     } catch (error) {
       console.error('Error fetching settings:', error);
       return getDefaultSettings();
@@ -166,8 +172,19 @@ export const adminService = {
   // Update system settings
   async updateSystemSettings(settings: any) {
     try {
-      ensureAdminAuth();
-      storage.setSettings(settings);
+      await ensureAdminAuth();
+      
+      // Update each setting key-value pair
+      for (const [key, value] of Object.entries(settings)) {
+        const { error } = await supabase
+          .from('system_settings')
+          .upsert({ key, value: value as any }, { onConflict: 'key' });
+
+        if (error) {
+          console.error(`Error updating setting ${key}:`, error);
+        }
+      }
+
       return { success: true, settings };
     } catch (error) {
       console.error('Error updating settings:', error);
@@ -178,12 +195,30 @@ export const adminService = {
   // Get weekly tracking data (commits and reports)
   async getWeeklyTracking() {
     try {
-      ensureAdminAuth();
-      // For now, return empty arrays - these would come from weekly_commits and weekly_reports tables
-      // In localStorage mode, we don't have this data structure yet
+      await ensureAdminAuth();
+      
+      const { data: commits, error: commitsError } = await supabase
+        .from('weekly_commits')
+        .select(`
+          *,
+          founder:founder_profiles(name, email)
+        `)
+        .order('week_number', { ascending: false });
+
+      const { data: reports, error: reportsError } = await supabase
+        .from('weekly_reports')
+        .select(`
+          *,
+          founder:founder_profiles(name, email)
+        `)
+        .order('week_number', { ascending: false });
+
+      if (commitsError) console.error('Error fetching commits:', commitsError);
+      if (reportsError) console.error('Error fetching reports:', reportsError);
+
       return {
-        commits: [],
-        reports: []
+        commits: commits || [],
+        reports: reports || []
       };
     } catch (error) {
       console.error('Error fetching weekly tracking:', error);
@@ -194,31 +229,43 @@ export const adminService = {
   // Create founder (admin only)
   async createFounder(data: any) {
     try {
-      ensureAdminAuth();
+      await ensureAdminAuth();
       
-      // Use the storage signUp function to create a complete user + founder record
-      const result = await storage.signUp(data.email, data.password, {
-        user_type: 'founder',
-        name: data.name,
-        business_name: data.business_name,
-        industry: data.industry,
-        phone: data.phone,
+      // Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: { user_type: 'founder', name: data.name },
+        },
       });
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to create founder');
+
+      if (authError || !authData.user) {
+        throw new Error(authError?.message || 'Failed to create auth user');
       }
-      
-      // If there are additional updates, apply them
-      if (result.user && (data.account_status || data.current_stage || data.subscription_status)) {
-        await storage.updateFounder(result.user.id, {
-          account_status: data.account_status,
-          current_stage: data.current_stage,
-          subscription_status: data.subscription_status,
-        });
+
+      // Create founder profile
+      const { data: profile, error: profileError } = await supabase
+        .from('founder_profiles')
+        .insert({
+          user_id: authData.user.id,
+          email: data.email,
+          name: data.name,
+          business_name: data.business_name,
+          business_stage: data.business_stage,
+          phone: data.phone,
+          country: data.country,
+          current_stage: data.current_stage || 1,
+          subscription_status: data.subscription_status || 'trial',
+        })
+        .select()
+        .single();
+
+      if (profileError) {
+        throw new Error(profileError.message || 'Failed to create founder profile');
       }
-      
-      return { success: true, user: result.user };
+
+      return { success: true, user: authData.user, profile };
     } catch (error: any) {
       console.error('Error creating founder:', error);
       throw error;
@@ -228,13 +275,18 @@ export const adminService = {
   // Update founder
   async updateFounder(founderId: string, updates: any) {
     try {
-      ensureAdminAuth();
-      const success = storage.updateFounder(founderId, updates);
-      if (success) {
-        return { success: true };
-      } else {
-        throw new Error('Founder not found');
+      await ensureAdminAuth();
+      
+      const { error } = await supabase
+        .from('founder_profiles')
+        .update(updates)
+        .eq('id', founderId);
+
+      if (error) {
+        throw new Error(error.message || 'Failed to update founder');
       }
+
+      return { success: true };
     } catch (error) {
       console.error('Error updating founder:', error);
       throw error;
@@ -244,13 +296,39 @@ export const adminService = {
   // Delete founder
   async deleteFounder(founderId: string) {
     try {
-      ensureAdminAuth();
-      const success = storage.deleteFounder(founderId);
-      if (success) {
-        return { success: true };
+      await ensureAdminAuth();
+      
+      // Get founder profile to get user_id
+      const { data: profile } = await supabase
+        .from('founder_profiles')
+        .select('user_id')
+        .eq('id', founderId)
+        .single();
+
+      if (profile?.user_id) {
+        // Delete auth user (will cascade to founder_profiles due to ON DELETE CASCADE)
+        const { error: authError } = await supabase.auth.admin.deleteUser(profile.user_id);
+        
+        if (authError) {
+          // If auth deletion fails, at least delete the profile
+          const { error } = await supabase
+            .from('founder_profiles')
+            .delete()
+            .eq('id', founderId);
+
+          if (error) throw error;
+        }
       } else {
-        throw new Error('Founder not found');
+        // Just delete profile if no user_id found
+        const { error } = await supabase
+          .from('founder_profiles')
+          .delete()
+          .eq('id', founderId);
+
+        if (error) throw error;
       }
+
+      return { success: true };
     } catch (error) {
       console.error('Error deleting founder:', error);
       throw error;

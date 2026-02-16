@@ -1,5 +1,5 @@
 // Protected Route Wrapper
-// Verifies user access based on localStorage roles
+// Verifies user access based on Supabase authentication
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -27,9 +27,9 @@ export default function ProtectedRoute({
     checkAccess();
   }, [requireAdmin, requireFounder]);
 
-  function checkAccess() {
+  async function checkAccess() {
     try {
-      const user = getCurrentUser();
+      const user = await getCurrentUser();
       
       if (!user) {
         navigate(redirectTo);
@@ -38,7 +38,8 @@ export default function ProtectedRoute({
 
       // Admin check
       if (requireAdmin) {
-        if (!isAdminAuthenticated()) {
+        const isAdmin = await isAdminAuthenticated();
+        if (!isAdmin) {
           navigate(redirectTo + '?error=unauthorized');
           return;
         }
@@ -46,7 +47,8 @@ export default function ProtectedRoute({
       } 
       // Founder check
       else if (requireFounder) {
-        if (!isFounderAuthenticated()) {
+        const isFounder = await isFounderAuthenticated();
+        if (!isFounder) {
           navigate(redirectTo + '?error=unauthorized');
           return;
         }

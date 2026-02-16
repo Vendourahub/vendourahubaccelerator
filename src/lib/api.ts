@@ -1,11 +1,24 @@
 /**
- * API Layer - LocalStorage Based
- * All API calls now use client-side localStorage
+ * API Layer - Supabase Integration
+ * Real backend database with authentication
  */
 
-import * as storage from './localStorage';
-import { getCurrentUser } from './auth';
-import { getCurrentAdmin } from './adminAuth';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables');
+  console.error('VITE_SUPABASE_URL:', supabaseUrl || 'NOT SET');
+  console.error('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'SET' : 'NOT SET');
+} else {
+  console.log('✅ Supabase client initialized successfully');
+  console.log('📍 Supabase URL:', supabaseUrl);
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ============================================================================
 // FOUNDER API
@@ -243,10 +256,21 @@ export async function adminDeleteApplication(applicationId: string): Promise<voi
 // ============================================================================
 
 export async function submitApplication(applicationData: any): Promise<any> {
-  return storage.createApplication({
-    ...applicationData,
-    status: 'pending',
-  });
+  const { data, error } = await supabase
+    .from('applications')
+    .insert({
+      ...applicationData,
+      status: 'pending',
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error submitting application:', error);
+    throw new Error(error.message || 'Failed to submit application');
+  }
+
+  return data;
 }
 
 // ============================================================================
@@ -254,7 +278,18 @@ export async function submitApplication(applicationData: any): Promise<any> {
 // ============================================================================
 
 export async function joinWaitlist(email: string, name?: string, source?: string): Promise<any> {
-  return storage.addToWaitlist(email, name, source);
+  const { data, error } = await supabase
+    .from('waitlist')
+    .insert({ email, name, source })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error joining waitlist:', error);
+    throw new Error(error.message || 'Failed to join waitlist');
+  }
+
+  return data;
 }
 
 export async function adminGetWaitlist(): Promise<any[]> {
@@ -378,142 +413,3 @@ export function importAllData(jsonData: string): boolean {
 export function clearAllData(): void {
   storage.clearAllData();
 }
-
-// ============================================================================
-// LEGACY COMPATIBILITY (for existing code)
-// ============================================================================
-
-// Export a dummy supabase client for compatibility
-export const supabase = {
-  auth: {
-    signUp: async (options: any) => {
-      console.warn('⚠️ Supabase is disabled. Using localStorage.');
-      return { data: null, error: { message: 'Supabase is disabled' } };
-    },
-    signInWithPassword: async (credentials: any) => {
-      console.warn('⚠️ Supabase is disabled. Using localStorage.');
-      return { data: null, error: { message: 'Supabase is disabled' } };
-    },
-    signInWithOAuth: async (options: any) => {
-      console.warn('⚠️ Supabase OAuth is disabled. Using localStorage.');
-      return { data: null, error: { message: 'OAuth not available in localStorage mode' } };
-    },
-    signOut: async () => {
-      storage.signOut();
-      return { error: null };
-    },
-    getSession: async () => {
-      const user = getCurrentUser();
-      if (user) {
-        return {
-          data: {
-            session: {
-              user: {
-                id: user.id,
-                email: user.email,
-                user_metadata: user.user_metadata,
-              },
-              access_token: 'localStorage-mode',
-            },
-          },
-          error: null,
-        };
-      }
-      return { data: { session: null }, error: null };
-    },
-    getUser: async () => {
-      const user = getCurrentUser();
-      if (user) {
-        return {
-          data: {
-            user: {
-              id: user.id,
-              email: user.email,
-              user_metadata: user.user_metadata,
-            },
-          },
-          error: null,
-        };
-      }
-      return { data: { user: null }, error: null };
-    },
-  },
-  // Add dummy from() method for database queries
-  from: (table: string) => {
-    console.warn(`⚠️ Supabase database query to "${table}" blocked. Using localStorage mode.`);
-    
-    // Create a chainable query builder that returns proper structure
-    const createChainableQuery = () => {
-      const chain: any = {
-        select: (columns?: string) => {
-          chain._operation = 'select';
-          return chain;
-        },
-        insert: (data?: any) => {
-          chain._operation = 'insert';
-          return chain;
-        },
-        update: (data?: any) => {
-          chain._operation = 'update';
-          return chain;
-        },
-        delete: () => {
-          chain._operation = 'delete';
-          return chain;
-        },
-        upsert: (data?: any) => {
-          chain._operation = 'upsert';
-          return chain;
-        },
-        eq: (column?: string, value?: any) => chain,
-        neq: (column?: string, value?: any) => chain,
-        gt: (column?: string, value?: any) => chain,
-        lt: (column?: string, value?: any) => chain,
-        gte: (column?: string, value?: any) => chain,
-        lte: (column?: string, value?: any) => chain,
-        like: (column?: string, value?: any) => chain,
-        ilike: (column?: string, value?: any) => chain,
-        is: (column?: string, value?: any) => chain,
-        in: (column?: string, values?: any[]) => chain,
-        contains: (column?: string, value?: any) => chain,
-        containedBy: (column?: string, value?: any) => chain,
-        range: (column?: string, from?: number, to?: number) => chain,
-        order: (column?: string, options?: any) => chain,
-        limit: (count?: number) => chain,
-        single: async () => ({ 
-          data: null, 
-          error: { message: 'Supabase is disabled. Use localStorage APIs instead.' } 
-        }),
-        maybeSingle: async () => ({ 
-          data: null, 
-          error: { message: 'Supabase is disabled. Use localStorage APIs instead.' } 
-        }),
-        then: async (resolve: any) => {
-          const result = { 
-            data: null, 
-            error: { message: 'Supabase is disabled. Use localStorage APIs instead.' } 
-          };
-          return resolve(result);
-        },
-        // For awaited queries
-        catch: (handler: any) => chain,
-      };
-      return chain;
-    };
-    
-    return createChainableQuery();
-  },
-  // Add dummy channel() method for realtime subscriptions
-  channel: (name: string) => {
-    console.warn(`⚠️ Supabase realtime channel "${name}" blocked. Realtime not available in localStorage mode.`);
-    return {
-      on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) }),
-      subscribe: () => ({ unsubscribe: () => {} }),
-      unsubscribe: () => {},
-    };
-  },
-};
-
-// Export project info for compatibility
-export const projectId = 'localStorage-mode';
-export const publicAnonKey = 'localStorage-mode';

@@ -1,10 +1,9 @@
 /**
- * Founder Service - LocalStorage Mode
- * Provides founder-specific API functions using localStorage
+ * Founder Service - Supabase Integration
+ * Provides founder-specific API functions using Supabase
  */
 
-import * as storage from './localStorage';
-import { getCurrentUser } from './auth';
+import { supabase } from './api';
 
 export interface FounderProfile {
   id: string;
@@ -61,14 +60,24 @@ export const founderService = {
   // Get current founder's complete profile
   getMyProfile: async (): Promise<FounderProfile | null> => {
     try {
-      const user = getCurrentUser();
-      if (!user) {
-        console.error('No user found');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        console.error('No user found:', authError);
         return null;
       }
 
-      const founder = storage.getFounder(user.id);
-      return founder;
+      const { data, error } = await supabase
+        .from('founder_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching founder profile:', error);
+        return null;
+      }
+
+      return data;
     } catch (error) {
       console.error('Error fetching founder profile:', error);
       return null;
@@ -78,12 +87,30 @@ export const founderService = {
   // Get founder's weekly commits
   getMyCommits: async (): Promise<WeeklyCommit[]> => {
     try {
-      const user = getCurrentUser();
-      if (!user) return [];
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) return [];
 
-      // For now, return empty array - commits not yet implemented in localStorage
-      console.log('ℹ️ Weekly commits not yet implemented in localStorage mode');
-      return [];
+      // Get founder profile to get founder_id
+      const { data: profile } = await supabase
+        .from('founder_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile) return [];
+
+      const { data, error } = await supabase
+        .from('weekly_commits')
+        .select('*')
+        .eq('founder_id', profile.id)
+        .order('week_number', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching commits:', error);
+        return [];
+      }
+
+      return data || [];
     } catch (error) {
       console.error('Error fetching commits:', error);
       return [];
@@ -93,12 +120,30 @@ export const founderService = {
   // Get founder's weekly reports
   getMyReports: async (): Promise<WeeklyReport[]> => {
     try {
-      const user = getCurrentUser();
-      if (!user) return [];
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) return [];
 
-      // For now, return empty array - reports not yet implemented in localStorage
-      console.log('ℹ️ Weekly reports not yet implemented in localStorage mode');
-      return [];
+      // Get founder profile to get founder_id
+      const { data: profile } = await supabase
+        .from('founder_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile) return [];
+
+      const { data, error } = await supabase
+        .from('weekly_reports')
+        .select('*')
+        .eq('founder_id', profile.id)
+        .order('week_number', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching reports:', error);
+        return [];
+      }
+
+      return data || [];
     } catch (error) {
       console.error('Error fetching reports:', error);
       return [];
@@ -123,13 +168,33 @@ export const founderService = {
   // Submit weekly commit
   submitCommit: async (commit: Omit<WeeklyCommit, 'id' | 'founder_id' | 'submitted_at'>): Promise<WeeklyCommit | null> => {
     try {
-      const user = getCurrentUser();
-      if (!user) throw new Error('Not authenticated');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('Not authenticated');
 
-      console.log('ℹ️ Commit submission not yet implemented in localStorage mode');
-      console.log('Commit data:', commit);
-      
-      return null;
+      // Get founder profile to get founder_id
+      const { data: profile } = await supabase
+        .from('founder_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile) throw new Error('Founder profile not found');
+
+      const { data, error } = await supabase
+        .from('weekly_commits')
+        .insert({
+          founder_id: profile.id,
+          ...commit
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error submitting commit:', error);
+        throw error;
+      }
+
+      return data;
     } catch (error) {
       console.error('Error submitting commit:', error);
       return null;
@@ -139,13 +204,33 @@ export const founderService = {
   // Submit weekly report
   submitReport: async (report: Omit<WeeklyReport, 'id' | 'founder_id' | 'submitted_at'>): Promise<WeeklyReport | null> => {
     try {
-      const user = getCurrentUser();
-      if (!user) throw new Error('Not authenticated');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('Not authenticated');
 
-      console.log('ℹ️ Report submission not yet implemented in localStorage mode');
-      console.log('Report data:', report);
-      
-      return null;
+      // Get founder profile to get founder_id
+      const { data: profile } = await supabase
+        .from('founder_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile) throw new Error('Founder profile not found');
+
+      const { data, error } = await supabase
+        .from('weekly_reports')
+        .insert({
+          founder_id: profile.id,
+          ...report
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error submitting report:', error);
+        throw error;
+      }
+
+      return data;
     } catch (error) {
       console.error('Error submitting report:', error);
       return null;
@@ -155,11 +240,20 @@ export const founderService = {
   // Update founder profile
   updateProfile: async (updates: Partial<FounderProfile>): Promise<boolean> => {
     try {
-      const user = getCurrentUser();
-      if (!user) return false;
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) return false;
 
-      const success = storage.updateFounder(user.id, updates);
-      return success;
+      const { error } = await supabase
+        .from('founder_profiles')
+        .update(updates)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error updating profile:', error);
+        return false;
+      }
+
+      return true;
     } catch (error) {
       console.error('Error updating profile:', error);
       return false;
@@ -182,15 +276,26 @@ export const founderService = {
 
       if (!profile) return null;
 
-      // For localStorage mode, use placeholder values
+      // Calculate total revenue from reports
+      const totalGenerated = reports.reduce((sum, r) => sum + (r.revenue_generated || 0), 0);
+      
+      // Calculate average dollar per hour
+      const totalHours = reports.reduce((sum, r) => sum + (r.hours_spent || 0), 0);
+      const avgDollarPerHour = totalHours > 0 ? totalGenerated / totalHours : 0;
+      
+      // Calculate average win rate
+      const avgWinRate = reports.reduce((sum, r) => sum + (r.win_rate || 0), 0) / (reports.length || 1);
+
       return {
-        baseline30d: 0,
-        baseline90d: 0,
-        current30d: 0,
-        totalGenerated: 0,
-        growthPercent: 0,
-        avgDollarPerHour: 0,
-        avgWinRate: 0,
+        baseline30d: profile.baseline_revenue_30d || 0,
+        baseline90d: profile.baseline_revenue_90d || 0,
+        current30d: totalGenerated,
+        totalGenerated,
+        growthPercent: profile.baseline_revenue_30d 
+          ? ((totalGenerated - profile.baseline_revenue_30d) / profile.baseline_revenue_30d) * 100
+          : 0,
+        avgDollarPerHour,
+        avgWinRate,
       };
     } catch (error) {
       console.error('Error calculating revenue metrics:', error);

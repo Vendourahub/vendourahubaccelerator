@@ -1,6 +1,6 @@
 import { useNavigate, useLocation, Outlet } from "react-router";
 import { Link } from "react-router";
-import { isAdminAuthenticated, getAdminRole, signOut } from "../lib/authManager";
+import { isAdminAuthenticated, getAdminRole, signOut, getCurrentAdmin } from "../lib/authManager";
 import { Shield, Users, BarChart3, AlertTriangle, Database, UserCog, Lock, LogOut, Clock, CreditCard, Bell, User, Menu, X, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import React from "react";
@@ -28,8 +28,8 @@ export default function AdminLayout() {
 
   // Check admin session on mount and when location changes
   useEffect(() => {
-    const checkSession = () => {
-      const currentAdmin = getCurrentAdmin();
+    const checkSession = async () => {
+      const currentAdmin = await getCurrentAdmin();
       console.log('🔍 AdminLayout: Checking admin session on route change:', currentAdmin ? `Found (${currentAdmin.email})` : 'Not found');
       
       if (!currentAdmin) {
