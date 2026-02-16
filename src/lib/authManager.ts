@@ -198,6 +198,15 @@ export async function signInAdmin(
     }
 
     console.log('✅ Admin profile found:', admin.admin_role);
+    
+    // Store admin data in localStorage for quick access
+    const adminData = {
+      id: data.user.id,
+      email: data.user.email,
+      ...admin
+    };
+    localStorage.setItem('vendoura_admin_session', JSON.stringify(adminData));
+    console.log('💾 Admin session stored in localStorage');
 
     return {
       success: true,
@@ -268,17 +277,52 @@ export async function getCurrentFounder(): Promise<any | null> {
  */
 export async function getCurrentAdmin(): Promise<any | null> {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) return null;
+    // First, check if admin session is cached in localStorage
+    const cachedSession = localStorage.getItem('vendoura_admin_session');
+    if (cachedSession) {
+      try {
+        const admin = JSON.parse(cachedSession);
+        console.log('✅ Admin session found in localStorage:', admin.email);
+        return admin;
+      } catch (e) {
+        console.warn('⚠️ Failed to parse cached admin session');
+      }
+    }
 
-    const { data: admin } = await supabase
+    console.log('📊 No cached session, fetching from Supabase...');
+    
+    // If no cached session, fetch from Supabase
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      console.warn('⚠️ No authenticated user found');
+      return null;
+    }
+
+    console.log('✅ Found authenticated user:', user.email);
+
+    const { data: admin, error: adminError } = await supabase
       .from('admin_users')
       .select('*')
       .eq('user_id', user.id)
       .single();
 
+    if (adminError || !admin) {
+      console.warn('⚠️ Admin profile not found:', adminError?.message);
+      return null;
+    }
+
+    // Cache the admin session
+    const adminData = {
+      id: user.id,
+      email: user.email,
+      ...admin
+    };
+    localStorage.setItem('vendoura_admin_session', JSON.stringify(adminData));
+    console.log('💾 Admin session cached in localStorage');
+
     return admin || null;
-  } catch {
+  } catch (error: any) {
+    console.error('❌ Error getting admin:', error.message);
     return null;
   }
 }
@@ -319,5 +363,15 @@ export async function isSuperAdmin(): Promise<boolean> {
  * Sign out current user (founder or admin)
  */
 export async function signOut(): Promise<void> {
-  await supabase.auth.signOut();
+  try {
+    // Clear admin session from localStorage
+    localStorage.removeItem('vendoura_admin_session');
+    console.log('🔓 Admin session cleared from localStorage');
+    
+    // Sign out from Supabase
+    await supabase.auth.signOut();
+    console.log('🔓 Signed out from Supabase');
+  } catch (error: any) {
+    console.error('Error signing out:', error);
+  }
 }
