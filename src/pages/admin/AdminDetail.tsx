@@ -64,26 +64,19 @@ export default function AdminDetail() {
         return;
       }
 
-      // Get all admins
-      const admins = storage.getFromStorage(storage.KEYS.ADMINS) || [];
-      
-      // Update the admin
-      const updatedAdmins = admins.map((admin: any) => {
-        if (admin.id === id) {
-          return {
-            ...admin,
-            name: editFormData.name.trim(),
-            email: editFormData.email.trim().toLowerCase()
-          };
-        }
-        return admin;
+      // Update the admin using storage API
+      const success = storage.updateAdmin(id || '', {
+        name: editFormData.name.trim(),
+        email: editFormData.email.trim().toLowerCase()
       });
 
-      // Save back to storage
-      storage.setToStorage(storage.KEYS.ADMINS, updatedAdmins);
+      if (!success) {
+        toast.error('Failed to update profile');
+        return;
+      }
 
       // Reload admin data
-      const updated = updatedAdmins.find((a: any) => a.id === id);
+      const updated = storage.getAdmin(id || '');
       setTargetAdmin(updated);
       setIsEditing(false);
       
@@ -121,19 +114,13 @@ export default function AdminDetail() {
         return;
       }
 
-      // Update password in localStorage
-      const admins = storage.getFromStorage(storage.KEYS.ADMINS) || [];
-      const updatedAdmins = admins.map((admin: any) => {
-        if (admin.id === id) {
-          return {
-            ...admin,
-            password: newPassword // In localStorage mode, we store plain password
-          };
-        }
-        return admin;
-      });
+      // Reset password using storage API
+      const success = storage.resetUserPassword(id || '', 'admin', newPassword);
 
-      storage.setToStorage(storage.KEYS.ADMINS, updatedAdmins);
+      if (!success) {
+        toast.error('Failed to reset password');
+        return;
+      }
 
       // Clear form
       setNewPassword('');
@@ -157,31 +144,24 @@ export default function AdminDetail() {
         return;
       }
 
-      // Get all admins
-      const admins = storage.getFromStorage(storage.KEYS.ADMINS) || [];
-      
-      // Update the admin
-      const updatedAdmins = admins.map((admin: any) => {
-        if (admin.id === id) {
-          return {
-            ...admin,
-            is_locked: !isCurrentlyLocked
-          };
-        }
-        return admin;
+      // Update the admin's lock status
+      const success = storage.updateAdmin(id || '', {
+        is_locked: !isCurrentlyLocked
       });
 
-      // Save back to storage
-      storage.setToStorage(storage.KEYS.ADMINS, updatedAdmins);
+      if (!success) {
+        toast.error(`Failed to ${action} account`);
+        return;
+      }
 
       // Reload admin data
-      const updated = updatedAdmins.find((a: any) => a.id === id);
+      const updated = storage.getAdmin(id || '');
       setTargetAdmin(updated);
       
       toast.success(`Admin account ${action}ed successfully`);
     } catch (error: any) {
       console.error('Error toggling account lock:', error);
-      toast.error(`Failed to ${targetAdmin.is_locked ? 'unlock' : 'lock'} account: ${error.message}`);
+      toast.error(`Failed to ${error.message}`);
     }
   };
 
