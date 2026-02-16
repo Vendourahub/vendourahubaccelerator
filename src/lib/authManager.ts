@@ -275,6 +275,26 @@ export async function getCurrentFounder(): Promise<any | null> {
 /**
  * Get current admin profile (if logged in as admin)
  */
+/**
+ * Get current admin SYNCHRONOUSLY from localStorage
+ * Used by API layer for quick access checks
+ */
+export function getCurrentAdminSync(): any | null {
+  try {
+    const cachedSession = localStorage.getItem('vendoura_admin_session');
+    if (cachedSession) {
+      const admin = JSON.parse(cachedSession);
+      console.log('✅ Retrieved cached admin session:', admin.email);
+      return admin;
+    }
+    console.log('⚠️ No cached admin session found');
+    return null;
+  } catch (error: any) {
+    console.error('❌ Error reading cached admin session:', error);
+    return null;
+  }
+}
+
 export async function getCurrentAdmin(): Promise<any | null> {
   try {
     // First, check if admin session is cached in localStorage

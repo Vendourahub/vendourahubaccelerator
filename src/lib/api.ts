@@ -4,6 +4,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { getCurrentAdminSync } from './authManager';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -79,7 +80,7 @@ export async function completeOnboarding(data: any): Promise<any> {
 // ============================================================================
 
 export async function adminGetAllFounders(): Promise<any[]> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -88,7 +89,7 @@ export async function adminGetAllFounders(): Promise<any[]> {
 }
 
 export async function adminGetFounder(founderId: string): Promise<any> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -102,7 +103,7 @@ export async function adminGetFounder(founderId: string): Promise<any> {
 }
 
 export async function adminUpdateFounder(founderId: string, updates: any): Promise<any> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -116,7 +117,7 @@ export async function adminUpdateFounder(founderId: string, updates: any): Promi
 }
 
 export async function adminDeleteFounder(founderId: string): Promise<void> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -132,7 +133,7 @@ export async function adminDeleteFounder(founderId: string): Promise<void> {
 // ============================================================================
 
 export async function adminGetAllCohorts(): Promise<any[]> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -141,7 +142,7 @@ export async function adminGetAllCohorts(): Promise<any[]> {
 }
 
 export async function adminGetCohort(cohortId: string): Promise<any> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -155,7 +156,7 @@ export async function adminGetCohort(cohortId: string): Promise<any> {
 }
 
 export async function adminCreateCohort(cohortData: any): Promise<any> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -167,7 +168,7 @@ export async function adminCreateCohort(cohortData: any): Promise<any> {
 }
 
 export async function adminUpdateCohort(cohortId: string, updates: any): Promise<any> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -181,7 +182,7 @@ export async function adminUpdateCohort(cohortId: string, updates: any): Promise
 }
 
 export async function adminDeleteCohort(cohortId: string): Promise<void> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -197,7 +198,7 @@ export async function adminDeleteCohort(cohortId: string): Promise<void> {
 // ============================================================================
 
 export async function adminGetAllApplications(): Promise<any[]> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -206,7 +207,7 @@ export async function adminGetAllApplications(): Promise<any[]> {
 }
 
 export async function adminGetApplication(applicationId: string): Promise<any> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -220,7 +221,7 @@ export async function adminGetApplication(applicationId: string): Promise<any> {
 }
 
 export async function adminUpdateApplication(applicationId: string, updates: any): Promise<any> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -240,7 +241,7 @@ export async function adminUpdateApplication(applicationId: string, updates: any
 }
 
 export async function adminDeleteApplication(applicationId: string): Promise<void> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -293,7 +294,7 @@ export async function joinWaitlist(email: string, name?: string, source?: string
 }
 
 export async function adminGetWaitlist(): Promise<any[]> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -302,7 +303,7 @@ export async function adminGetWaitlist(): Promise<any[]> {
 }
 
 export async function adminRemoveFromWaitlist(waitlistId: string): Promise<void> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -314,7 +315,7 @@ export async function adminRemoveFromWaitlist(waitlistId: string): Promise<void>
 }
 
 export async function adminMarkWaitlistNotified(waitlistId: string): Promise<void> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -330,7 +331,7 @@ export async function adminMarkWaitlistNotified(waitlistId: string): Promise<voi
 // ============================================================================
 
 export async function adminGetSettings(): Promise<any> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -339,7 +340,7 @@ export async function adminGetSettings(): Promise<any> {
 }
 
 export async function adminUpdateSettings(updates: any): Promise<any> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -353,7 +354,7 @@ export async function adminUpdateSettings(updates: any): Promise<any> {
 // ============================================================================
 
 export async function adminGetStatistics(): Promise<any> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
@@ -390,7 +391,7 @@ export async function sendEmail(to: string, subject: string, template: string, d
 }
 
 export async function adminGetEmailLogs(): Promise<any[]> {
-  const admin = getCurrentAdmin();
+  const admin = getCurrentAdminSync();
   if (!admin) {
     throw new Error('Not authenticated as admin');
   }
