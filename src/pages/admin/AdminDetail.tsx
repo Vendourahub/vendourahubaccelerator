@@ -1,7 +1,8 @@
 import { Link, useParams } from "react-router";
 import { Shield, UserCog, TrendingUp, Eye, AlertTriangle, ArrowLeft, Edit, Lock, User, Mail, Save, Key, EyeOff } from "lucide-react";
 import { formatWATDate } from "../../lib/time";
-import { getCurrentAdmin, getAllAdmins } from "../../lib/adminAuth";
+import { getCurrentAdminSync } from "../../lib/authManager";
+import { adminService } from "../../lib/adminService";
 import { useState, useEffect } from "react";
 import React from "react";
 import * as storage from "../../lib/localStorage";
@@ -9,7 +10,7 @@ import { toast } from "sonner@2.0.3";
 
 export default function AdminDetail() {
   const { id } = useParams();
-  const currentAdmin = getCurrentAdmin();
+  const currentAdmin = getCurrentAdminSync();
   const [targetAdmin, setTargetAdmin] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
@@ -32,7 +33,7 @@ export default function AdminDetail() {
     const loadAdmin = async () => {
       try {
         setLoading(true);
-        const allAdmins = await getAllAdmins();
+        const allAdmins = await adminService.getAllAdmins();
         const admin = allAdmins.find(a => a.id === id);
         
         if (admin) {

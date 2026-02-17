@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import React from 'react';
 import { Shield, UserPlus, Trash2, Edit, Eye, Lock, Unlock } from 'lucide-react';
 import { Link } from 'react-router';
-import { getAllAdmins, createAdmin as createAdminInAuth, deleteAdmin as deleteAdminInAuth } from '../../lib/adminAuth';
+import { getCurrentAdminSync } from '../../lib/authManager';
+import { adminService } from '../../lib/adminService';
 import { formatWATDate } from '../../lib/time';
 import * as storage from '../../lib/localStorage';
 
@@ -33,7 +34,7 @@ export default function AdminAccounts() {
   const loadAdmins = async () => {
     try {
       setLoading(true);
-      const data = await getAllAdmins();
+      const data = await adminService.getAllAdmins();
 
       // Map admin data to expected format
       const mappedAdmins = data.map(admin => ({

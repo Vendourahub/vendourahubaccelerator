@@ -1,7 +1,7 @@
 // Super Admin Control Panel - Updated Feb 2026
 import { useState, useEffect } from 'react';
 import { adminService } from '../../lib/adminService';
-import { getCurrentAdmin } from '../../lib/adminAuth';
+import { getCurrentAdminSync } from '../../lib/authManager';
 import * as storage from '../../lib/localStorage';
 import { Shield, Users, Settings, AlertTriangle, Check, X, Plus, Download, Mail, Clock, TrendingUp, CheckCircle, ToggleRight, ToggleLeft, Trash2, UserPlus, Calendar, Activity, Edit } from 'lucide-react';
 import React from 'react';
@@ -63,8 +63,8 @@ export default function SuperAdminControl() {
     try {
       setLoading(true);
 
-      // Check admin auth from localStorage
-      const currentAdmin = getCurrentAdmin();
+      // Check admin auth from cached session
+      const currentAdmin = getCurrentAdminSync();
       if (!currentAdmin) {
         console.error('❌ No admin session found');
         window.location.href = '/admin/login';

@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import Landing from "./pages/Landing";
 import Application from "./pages/Application";
 import Login from "./pages/Login";
@@ -330,6 +330,11 @@ export const router = createBrowserRouter([
         path: "admindetail/:id",
         element: <AdminDetail />,
         errorElement: <ErrorBoundary />,
+      },
+      {
+        // Catch-all for unmatched admin routes - redirect to dashboard
+        path: "*",
+        element: <Navigate to="/admin" replace />,
       },
     ],
   },

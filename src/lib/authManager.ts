@@ -315,9 +315,20 @@ export async function getCurrentAdmin(): Promise<any | null> {
       try {
         const admin = JSON.parse(cachedSession);
         console.log('✅ Admin session found in localStorage:', admin.email);
+        
+        // Validate that Supabase session is still active
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+          console.warn('⚠️ Cached session exists but Supabase session is invalid, clearing cache');
+          localStorage.removeItem('vendoura_admin_session');
+          return null;
+        }
+        
+        // Session is valid, return cached admin data
         return admin;
       } catch (e) {
         console.warn('⚠️ Failed to parse cached admin session');
+        localStorage.removeItem('vendoura_admin_session');
       }
     }
 
@@ -352,7 +363,7 @@ export async function getCurrentAdmin(): Promise<any | null> {
     localStorage.setItem('vendoura_admin_session', JSON.stringify(adminData));
     console.log('💾 Admin session cached in localStorage');
 
-    return admin || null;
+    return adminData;
   } catch (error: any) {
     console.error('❌ Error getting admin:', error.message);
     return null;

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Code, Database, Key, Server, Terminal, Copy, Eye, EyeOff, Check, Settings, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router';
-import { getCurrentAdmin } from '../../lib/adminAuth';
+import { getCurrentAdminSync } from '../../lib/authManager';
 import * as storage from '../../lib/localStorage';
 
 export default function DevVault() {
@@ -16,7 +16,7 @@ export default function DevVault() {
   };
 
   // Get localStorage debug info
-  const currentAdmin = getCurrentAdmin();
+  const currentAdmin = getCurrentAdminSync();
   const currentAdminSession = storage.getCurrentAdmin();
   const allAdmins = storage.getAllAdmins();
   const allFounders = storage.getAllFounders();

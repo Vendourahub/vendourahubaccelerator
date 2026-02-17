@@ -19,7 +19,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.log('📍 Supabase URL:', supabaseUrl);
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storageKey: 'vendoura-auth-token',
+    storage: window.localStorage,
+  }
+});
 
 // ============================================================================
 // FOUNDER API

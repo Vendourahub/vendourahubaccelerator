@@ -4,29 +4,21 @@
  */
 
 import { supabase } from './api';
+import { getCurrentAdminSync } from './authManager';
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
 async function ensureAdminAuth() {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) {
-    console.error('❌ No admin session found');
+  // Use cached admin session for instant validation
+  const admin = getCurrentAdminSync();
+  if (!admin) {
+    console.error('❌ No admin session found in cache');
     throw new Error('Not authenticated as admin');
   }
 
-  // Verify admin status
-  const { data: admin, error: adminError } = await supabase
-    .from('admin_users')
-    .select('*')
-    .eq('user_id', user.id)
-    .single();
-
-  if (adminError || !admin) {
-    throw new Error('Access denied. Admin privileges required.');
-  }
-
+  console.log('✅ Admin authenticated:', admin.email);
   return admin;
 }
 

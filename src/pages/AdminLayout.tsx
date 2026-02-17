@@ -26,27 +26,24 @@ export default function AdminLayout() {
     return () => clearInterval(timer);
   }, []);
 
-  // Check admin session on mount and when location changes
+  // Check admin session on mount only (not on route changes)
   useEffect(() => {
     const checkSession = async () => {
+      console.log('🔍 AdminLayout: Checking admin session on mount');
       const currentAdmin = await getCurrentAdmin();
-      console.log('🔍 AdminLayout: Checking admin session on route change:', currentAdmin ? `Found (${currentAdmin.email})` : 'Not found');
       
       if (!currentAdmin) {
         console.log('⚠️ AdminLayout: No admin session found');
         setAdmin(null);
-        setIsChecking(false);
       } else {
-        console.log('✅ AdminLayout: Admin session found, setting state');
+        console.log('✅ AdminLayout: Admin session found:', currentAdmin.email);
         setAdmin(currentAdmin);
-        setIsChecking(false);
       }
+      setIsChecking(false);
     };
 
-    // Add a small delay to ensure localStorage is updated
-    const timer = setTimeout(checkSession, 100);
-    return () => clearTimeout(timer);
-  }, [location.pathname]);
+    checkSession();
+  }, []); // Empty dependency array - only run on mount
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -108,7 +105,7 @@ export default function AdminLayout() {
 
   const handleLogout = async () => {
     console.log('🚪 Logging out admin...');
-    await adminLogout();
+    await signOut();
     setAdmin(null); // Clear state immediately
     // Navigate to admin login
     navigate("/admin", { replace: true });
