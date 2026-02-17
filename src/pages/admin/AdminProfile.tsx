@@ -3,7 +3,7 @@ import { Shield, User, Mail, Check, Edit2, X, Save, Settings, Lock, LogOut } fro
 import React from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner@2.0.3';
-import { getCurrentAdmin, adminLogout } from '../../lib/adminAuth';
+import { getCurrentAdminSync, signOut } from '../../lib/authManager';
 import * as storage from '../../lib/localStorage';
 
 interface AdminProfile {
@@ -32,8 +32,8 @@ export default function AdminProfile() {
     try {
       setLoading(true);
       
-      // Get current admin from localStorage auth
-      const currentAdmin = getCurrentAdmin();
+      // Get current admin from cached session
+      const currentAdmin = getCurrentAdminSync();
       
       if (!currentAdmin) {
         toast.error('Not authenticated as admin');
@@ -41,18 +41,11 @@ export default function AdminProfile() {
         return;
       }
 
-      // Get full admin profile from localStorage
-      const adminData = storage.getAdminByEmail(currentAdmin.email);
+      console.log('✅ Admin profile loaded:', currentAdmin.email);
       
-      if (!adminData) {
-        toast.error('Admin profile not found');
-        navigate('/admin/login');
-        return;
-      }
-
-      setAdmin(adminData);
+      setAdmin(currentAdmin);
       setFormData({
-        name: adminData.name || '',
+        name: currentAdmin.name || '',
       });
     } catch (error: any) {
       console.error('Error loading admin profile:', error);
@@ -98,9 +91,9 @@ export default function AdminProfile() {
     setEditing(false);
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     try {
-      adminLogout();
+      await signOut();
       toast.success('Signed out successfully');
       navigate('/admin/login');
     } catch (error) {
