@@ -228,6 +228,18 @@ export async function signInAdmin(
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
   try {
+    // First check if admin session is cached
+    const cachedAdmin = getCurrentAdminSync();
+    if (cachedAdmin) {
+      return {
+        id: cachedAdmin.user_id || cachedAdmin.id,
+        email: cachedAdmin.email,
+        user_type: 'admin',
+        user_metadata: {},
+      };
+    }
+
+    // If no cached admin, check Supabase
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
@@ -359,6 +371,13 @@ export async function isFounderAuthenticated(): Promise<boolean> {
  * Check if user is authenticated as admin
  */
 export async function isAdminAuthenticated(): Promise<boolean> {
+  // Check cached admin session first (instant)
+  const cachedAdmin = getCurrentAdminSync();
+  if (cachedAdmin) {
+    return true;
+  }
+  
+  // Fallback to full check
   const user = await getCurrentUser();
   return user?.user_type === 'admin';
 }
