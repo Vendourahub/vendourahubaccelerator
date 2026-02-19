@@ -2,7 +2,7 @@ import { useNavigate } from "react-router";
 import { useState, useEffect } from "react";
 import React from "react";
 import { ArrowRight, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
-import { getCurrentUser, completeOnboarding } from "../lib/auth";
+import { getCurrentUser, completeFounderOnboarding } from "../lib/authManager";
 import { formatCurrency, CURRENCY_SYMBOL } from "../lib/currency";
 
 export default function Onboarding() {
@@ -24,8 +24,8 @@ export default function Onboarding() {
   
   // Check auth on mount
   useEffect(() => {
-    const checkAuth = () => {
-      const currentUser = getCurrentUser();
+    const checkAuth = async () => {
+      const currentUser = await getCurrentUser();
       
       if (!currentUser) {
         navigate("/login");
@@ -69,7 +69,7 @@ export default function Onboarding() {
 
       console.log('🚀 Submitting onboarding data:', onboardingData);
       
-      const result = await completeOnboarding(onboardingData);
+      const result = await completeFounderOnboarding(onboardingData);
       
       if (result.success) {
         console.log('✅ Onboarding completed successfully, navigating to dashboard');

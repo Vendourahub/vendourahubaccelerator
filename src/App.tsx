@@ -1,6 +1,6 @@
 import { RouterProvider } from "react-router";
 import { router } from "./routes.tsx";
-import { Toaster } from "sonner@2.0.3";
+import { Toaster } from "sonner";
 import { useEffect } from "react";
 import { initializeStorage } from "./lib/localStorage";
 import { seedDefaultData } from "./lib/seedData";
@@ -38,12 +38,7 @@ export default function App() {
 
   return (
     <>
-      <RouterProvider 
-        router={router}
-        future={{
-          v7_startTransition: true,
-        }}
-      />
+      <RouterProvider router={router} />
       <Toaster position="top-right" />
     </>
   );

@@ -23,6 +23,12 @@ export interface FounderAuthResult {
   error?: string;
 }
 
+export interface FounderProfileResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
+
 export interface AdminAuthResult {
   success: boolean;
   user?: AuthUser;
@@ -50,6 +56,7 @@ export async function signUpFounder(
 ): Promise<FounderAuthResult> {
   try {
     // Sign up with Supabase Auth
+    // Disable email confirmation for now to work around rate limits
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -58,6 +65,7 @@ export async function signUpFounder(
           user_type: 'founder',
           ...metadata,
         },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
 
@@ -281,6 +289,95 @@ export async function getCurrentFounder(): Promise<any | null> {
     return profile || null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Get founder profile result wrapper
+ */
+export async function getFounderProfile(): Promise<FounderProfileResult> {
+  try {
+    const profile = await getCurrentFounder();
+    if (!profile) {
+      return { success: false, error: 'Founder profile not found' };
+    }
+
+    return { success: true, data: profile };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to load founder profile' };
+  }
+}
+
+/**
+ * Update current founder profile
+ */
+export async function updateFounderProfile(updates: any): Promise<FounderProfileResult> {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const payload = {
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error: updateError } = await supabase
+      .from('founder_profiles')
+      .update(payload)
+      .eq('user_id', user.id)
+      .select('*')
+      .single();
+
+    if (updateError || !data) {
+      return { success: false, error: updateError?.message || 'Failed to update profile' };
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to update profile' };
+  }
+}
+
+/**
+ * Complete founder onboarding
+ */
+export async function completeFounderOnboarding(onboardingData: any): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const payload = {
+      business_name: onboardingData.business_name,
+      business_model: onboardingData.business_model,
+      product_description: onboardingData.product_description,
+      customer_count: onboardingData.customer_count,
+      pricing: onboardingData.pricing,
+      baseline_revenue_30d: onboardingData.revenue_baseline_30d,
+      baseline_revenue_90d: onboardingData.revenue_baseline_90d,
+      onboarding_completed: true,
+      onboarding_completed_at: new Date().toISOString(),
+      current_stage: 1,
+      current_week: 1,
+      is_locked: false,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: updateError } = await supabase
+      .from('founder_profiles')
+      .update(payload)
+      .eq('user_id', user.id);
+
+    if (updateError) {
+      return { success: false, error: updateError.message };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to complete onboarding' };
   }
 }
 

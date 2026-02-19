@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getCurrentUser, getFounderProfile, updateFounderProfile } from '../lib/auth';
+import { getCurrentUser, getFounderProfile, updateFounderProfile } from '../lib/authManager';
 import { User, Mail, Building2, Calendar, TrendingUp, Edit2, Check, X, AlertCircle } from 'lucide-react';
 import React from 'react';
 import { formatCurrency } from '../lib/currency';
@@ -44,7 +44,7 @@ export default function FounderProfile() {
   const loadProfile = async () => {
     try {
       setLoading(true);
-      const user = getCurrentUser();
+      const user = await getCurrentUser();
       
       if (!user || user.user_type !== 'founder') {
         toast.error('Please sign in to view your profile');

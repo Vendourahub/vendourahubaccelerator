@@ -5,10 +5,12 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { getCurrentAdminSync } from './authManager';
+import * as storage from './localStorage';
 
 // Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const metaEnv = (import.meta as any).env || {};
+const supabaseUrl = metaEnv.VITE_SUPABASE_URL as string;
+const supabaseAnonKey = metaEnv.VITE_SUPABASE_ANON_KEY as string;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables');
@@ -29,57 +31,96 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
+async function requireAuthUser() {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) {
+    throw new Error('Not authenticated');
+  }
+  return user;
+}
+
+async function requireAdminUser() {
+  const cachedAdmin = getCurrentAdminSync();
+  if (!cachedAdmin) {
+    throw new Error('Not authenticated as admin');
+  }
+
+  const user = await requireAuthUser();
+  const { data: adminProfile, error } = await supabase
+    .from('admin_users')
+    .select('*')
+    .eq('user_id', user.id)
+    .single();
+
+  if (error || !adminProfile) {
+    throw new Error('Not authenticated as admin');
+  }
+
+  return { user, adminProfile };
+}
+
 // ============================================================================
 // FOUNDER API
 // ============================================================================
 
 export async function getFounderProfile(): Promise<any> {
-  const user = getCurrentUser();
-  if (!user || user.user_type !== 'founder') {
-    throw new Error('Not authenticated as founder');
-  }
-  
-  const founder = storage.getFounder(user.id);
-  if (!founder) {
+  const user = await requireAuthUser();
+  const { data: founder, error } = await supabase
+    .from('founder_profiles')
+    .select('*')
+    .eq('user_id', user.id)
+    .single();
+
+  if (error || !founder) {
     throw new Error('Founder profile not found');
   }
-  
+
   return founder;
 }
 
 export async function updateFounderProfile(updates: any): Promise<any> {
-  const user = getCurrentUser();
-  if (!user || user.user_type !== 'founder') {
-    throw new Error('Not authenticated as founder');
-  }
-  
-  const success = storage.updateFounder(user.id, updates);
-  if (!success) {
+  const user = await requireAuthUser();
+  const { data, error } = await supabase
+    .from('founder_profiles')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id)
+    .select('*')
+    .single();
+
+  if (error || !data) {
     throw new Error('Failed to update profile');
   }
-  
-  return storage.getFounder(user.id);
+
+  return data;
 }
 
 export async function completeOnboarding(data: any): Promise<any> {
-  const user = getCurrentUser();
-  if (!user || user.user_type !== 'founder') {
-    throw new Error('Not authenticated as founder');
-  }
-  
+  const user = await requireAuthUser();
   const updates = {
-    ...data,
+    business_name: data.business_name,
+    business_model: data.business_model,
+    product_description: data.product_description,
+    customer_count: data.customer_count,
+    pricing: data.pricing,
+    baseline_revenue_30d: data.revenue_baseline_30d,
+    baseline_revenue_90d: data.revenue_baseline_90d,
     onboarding_completed: true,
     onboarding_completed_at: new Date().toISOString(),
-    current_stage: 'stage_1',
+    current_stage: 1,
     current_week: 1,
+    is_locked: false,
+    updated_at: new Date().toISOString(),
   };
-  
-  const success = storage.updateFounder(user.id, updates);
-  if (!success) {
+
+  const { error } = await supabase
+    .from('founder_profiles')
+    .update(updates)
+    .eq('user_id', user.id);
+
+  if (error) {
     throw new Error('Failed to complete onboarding');
   }
-  
+
   return { success: true };
 }
 
@@ -88,50 +129,55 @@ export async function completeOnboarding(data: any): Promise<any> {
 // ============================================================================
 
 export async function adminGetAllFounders(): Promise<any[]> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  return storage.getAllFounders();
+  await requireAdminUser();
+  const { data, error } = await supabase
+    .from('founder_profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message || 'Failed to fetch founders');
+  return data || [];
 }
 
 export async function adminGetFounder(founderId: string): Promise<any> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  const founder = storage.getFounder(founderId);
-  if (!founder) {
+  await requireAdminUser();
+  const { data, error } = await supabase
+    .from('founder_profiles')
+    .select('*')
+    .eq('id', founderId)
+    .single();
+
+  if (error || !data) {
     throw new Error('Founder not found');
   }
-  
-  return founder;
+
+  return data;
 }
 
 export async function adminUpdateFounder(founderId: string, updates: any): Promise<any> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  const success = storage.updateFounder(founderId, updates);
-  if (!success) {
+  await requireAdminUser();
+  const { data, error } = await supabase
+    .from('founder_profiles')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', founderId)
+    .select('*')
+    .single();
+
+  if (error || !data) {
     throw new Error('Failed to update founder');
   }
-  
-  return storage.getFounder(founderId);
+
+  return data;
 }
 
 export async function adminDeleteFounder(founderId: string): Promise<void> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  const success = storage.deleteFounder(founderId);
-  if (!success) {
+  await requireAdminUser();
+  const { error } = await supabase
+    .from('founder_profiles')
+    .delete()
+    .eq('id', founderId);
+
+  if (error) {
     throw new Error('Failed to delete founder');
   }
 }
@@ -141,62 +187,70 @@ export async function adminDeleteFounder(founderId: string): Promise<void> {
 // ============================================================================
 
 export async function adminGetAllCohorts(): Promise<any[]> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  return storage.getAllCohorts();
+  await requireAdminUser();
+  const { data, error } = await supabase
+    .from('cohorts')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message || 'Failed to fetch cohorts');
+  return data || [];
 }
 
 export async function adminGetCohort(cohortId: string): Promise<any> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  const cohort = storage.getCohort(cohortId);
-  if (!cohort) {
+  await requireAdminUser();
+  const { data, error } = await supabase
+    .from('cohorts')
+    .select('*')
+    .eq('id', cohortId)
+    .single();
+
+  if (error || !data) {
     throw new Error('Cohort not found');
   }
-  
-  return cohort;
+
+  return data;
 }
 
 export async function adminCreateCohort(cohortData: any): Promise<any> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  return storage.createCohort({
+  const { adminProfile } = await requireAdminUser();
+  const { data, error } = await supabase
+    .from('cohorts')
+    .insert({
     ...cohortData,
-    created_by: admin.id,
-  });
+    created_by: adminProfile.id,
+  })
+    .select('*')
+    .single();
+
+  if (error || !data) throw new Error(error?.message || 'Failed to create cohort');
+  return data;
 }
 
 export async function adminUpdateCohort(cohortId: string, updates: any): Promise<any> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  const success = storage.updateCohort(cohortId, updates);
-  if (!success) {
+  await requireAdminUser();
+  const { data, error } = await supabase
+    .from('cohorts')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', cohortId)
+    .select('*')
+    .single();
+
+  if (error || !data) {
     throw new Error('Failed to update cohort');
   }
-  
-  return storage.getCohort(cohortId);
+
+  return data;
 }
 
 export async function adminDeleteCohort(cohortId: string): Promise<void> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  const success = storage.deleteCohort(cohortId);
-  if (!success) {
+  await requireAdminUser();
+  const { error } = await supabase
+    .from('cohorts')
+    .delete()
+    .eq('id', cohortId);
+
+  if (error) {
     throw new Error('Failed to delete cohort');
   }
 }
@@ -206,56 +260,61 @@ export async function adminDeleteCohort(cohortId: string): Promise<void> {
 // ============================================================================
 
 export async function adminGetAllApplications(): Promise<any[]> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  return storage.getAllApplications();
+  await requireAdminUser();
+  const { data, error } = await supabase
+    .from('applications')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message || 'Failed to fetch applications');
+  return data || [];
 }
 
 export async function adminGetApplication(applicationId: string): Promise<any> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  const application = storage.getApplication(applicationId);
-  if (!application) {
+  await requireAdminUser();
+  const { data, error } = await supabase
+    .from('applications')
+    .select('*')
+    .eq('id', applicationId)
+    .single();
+
+  if (error || !data) {
     throw new Error('Application not found');
   }
-  
-  return application;
+
+  return data;
 }
 
 export async function adminUpdateApplication(applicationId: string, updates: any): Promise<any> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
+  const { adminProfile } = await requireAdminUser();
   const updatedData = {
     ...updates,
     reviewed_at: new Date().toISOString(),
-    reviewed_by: admin.id,
+    reviewed_by: adminProfile.id,
   };
-  
-  const success = storage.updateApplication(applicationId, updatedData);
-  if (!success) {
+
+  const { data, error } = await supabase
+    .from('applications')
+    .update(updatedData)
+    .eq('id', applicationId)
+    .select('*')
+    .single();
+
+  if (error || !data) {
     throw new Error('Failed to update application');
   }
-  
-  return storage.getApplication(applicationId);
+
+  return data;
 }
 
 export async function adminDeleteApplication(applicationId: string): Promise<void> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  const success = storage.deleteApplication(applicationId);
-  if (!success) {
+  await requireAdminUser();
+  const { error } = await supabase
+    .from('applications')
+    .delete()
+    .eq('id', applicationId);
+
+  if (error) {
     throw new Error('Failed to delete application');
   }
 }
@@ -269,7 +328,7 @@ export async function submitApplication(applicationData: any): Promise<any> {
     .from('applications')
     .insert({
       ...applicationData,
-      status: 'pending',
+      status: applicationData?.status || 'pending',
     })
     .select()
     .single();
@@ -302,34 +361,36 @@ export async function joinWaitlist(email: string, name?: string, source?: string
 }
 
 export async function adminGetWaitlist(): Promise<any[]> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  return storage.getAllWaitlist();
+  await requireAdminUser();
+  const { data, error } = await supabase
+    .from('waitlist')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message || 'Failed to fetch waitlist');
+  return data || [];
 }
 
 export async function adminRemoveFromWaitlist(waitlistId: string): Promise<void> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  const success = storage.removeFromWaitlist(waitlistId);
-  if (!success) {
+  await requireAdminUser();
+  const { error } = await supabase
+    .from('waitlist')
+    .delete()
+    .eq('id', waitlistId);
+
+  if (error) {
     throw new Error('Failed to remove from waitlist');
   }
 }
 
 export async function adminMarkWaitlistNotified(waitlistId: string): Promise<void> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  const success = storage.markWaitlistNotified(waitlistId);
-  if (!success) {
+  await requireAdminUser();
+  const { error } = await supabase
+    .from('waitlist')
+    .update({ notified: true, notified_at: new Date().toISOString() })
+    .eq('id', waitlistId);
+
+  if (error) {
     throw new Error('Failed to mark as notified');
   }
 }
@@ -339,22 +400,29 @@ export async function adminMarkWaitlistNotified(waitlistId: string): Promise<voi
 // ============================================================================
 
 export async function adminGetSettings(): Promise<any> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  return storage.getSettings();
+  await requireAdminUser();
+  const { data, error } = await supabase
+    .from('system_settings')
+    .select('*');
+
+  if (error) throw new Error(error.message || 'Failed to fetch settings');
+  return data || [];
 }
 
 export async function adminUpdateSettings(updates: any): Promise<any> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
+  await requireAdminUser();
+
+  for (const [key, value] of Object.entries(updates || {})) {
+    const { error } = await supabase
+      .from('system_settings')
+      .upsert({ key, value }, { onConflict: 'key' });
+
+    if (error) {
+      throw new Error(error.message || `Failed to update setting: ${key}`);
+    }
   }
-  
-  storage.updateSettings(updates);
-  return storage.getSettings();
+
+  return adminGetSettings();
 }
 
 // ============================================================================
@@ -362,16 +430,20 @@ export async function adminUpdateSettings(updates: any): Promise<any> {
 // ============================================================================
 
 export async function adminGetStatistics(): Promise<any> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  const founders = storage.getAllFounders();
-  const cohorts = storage.getAllCohorts();
-  const applications = storage.getAllApplications();
-  const waitlist = storage.getAllWaitlist();
-  
+  await requireAdminUser();
+
+  const [foundersRes, cohortsRes, applicationsRes, waitlistRes] = await Promise.all([
+    supabase.from('founder_profiles').select('id,cohort_id,onboarding_completed'),
+    supabase.from('cohorts').select('id,status'),
+    supabase.from('applications').select('id,status'),
+    supabase.from('waitlist').select('id'),
+  ]);
+
+  const founders = foundersRes.data || [];
+  const cohorts = cohortsRes.data || [];
+  const applications = applicationsRes.data || [];
+  const waitlist = waitlistRes.data || [];
+
   return {
     total_founders: founders.length,
     active_founders: founders.filter(f => f.cohort_id).length,
@@ -390,21 +462,31 @@ export async function adminGetStatistics(): Promise<any> {
 
 export async function sendEmail(to: string, subject: string, template: string, data?: any): Promise<void> {
   console.log('📧 Email simulation:', { to, subject, template });
-  
-  // Log the email
-  storage.logEmail(to, subject, template, 'sent');
-  
-  // In a real app, this would send via an email service
-  // For localStorage mode, we just log it
+
+  const payload = {
+    to_email: to,
+    subject,
+    template_name: template,
+    payload: data || {},
+    status: 'sent',
+    sent_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase.from('email_logs').insert(payload);
+  if (error) {
+    console.warn('Unable to persist email log to Supabase:', error.message);
+  }
 }
 
 export async function adminGetEmailLogs(): Promise<any[]> {
-  const admin = getCurrentAdminSync();
-  if (!admin) {
-    throw new Error('Not authenticated as admin');
-  }
-  
-  return storage.getEmailLogs();
+  await requireAdminUser();
+  const { data, error } = await supabase
+    .from('email_logs')
+    .select('*')
+    .order('sent_at', { ascending: false });
+
+  if (error) throw new Error(error.message || 'Failed to fetch email logs');
+  return data || [];
 }
 
 // ============================================================================

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { Loader2 } from "lucide-react";
-import { getCurrentUser, isFounderAuthenticated, isAdminAuthenticated } from "../lib/authManager";
+import { getCurrentUser } from "../lib/authManager";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ export default function AuthCallback() {
         addDebug("🔄 Auth Callback - Checking authentication...");
         
         // Get current authenticated user from localStorage
-        const user = getCurrentUser();
+        const user = await getCurrentUser();
         
         addDebug(`📍 Current URL: ${window.location.href}`);
         addDebug(`👤 Current user: ${user?.email || 'none'}`);
@@ -46,10 +46,10 @@ export default function AuthCallback() {
         // Redirect based on user type
         setTimeout(() => {
           if (mounted) {
-            if (isAdminAuthenticated()) {
+            if (user.user_type === 'admin') {
               addDebug("🔄 Redirecting admin to dashboard...");
               navigate("/admin/superadmindashboard", { replace: true });
-            } else if (isFounderAuthenticated()) {
+            } else if (user.user_type === 'founder') {
               addDebug("🔄 Redirecting founder to dashboard...");
               navigate("/founder/dashboard", { replace: true });
             } else {

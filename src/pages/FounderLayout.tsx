@@ -1,5 +1,5 @@
 import { useNavigate, useLocation, Outlet } from "react-router";
-import { getCurrentUser, getFounderData, logout, User, Founder } from "../lib/auth";
+import { getCurrentUser, getCurrentFounder, signOut, AuthUser } from "../lib/authManager";
 import { Link } from "react-router";
 import { useEffect, useState } from "react";
 import React from "react";
@@ -10,14 +10,14 @@ import ScrollToTop from "../components/ScrollToTop";
 export default function FounderLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [user, setUser] = useState<User | null>(null);
-  const [founderData, setFounderData] = useState<Founder | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [founderData, setFounderData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   useEffect(() => {
     const checkAuth = async () => {
-      const currentUser = getCurrentUser(); // Synchronous, no await needed
+      const currentUser = await getCurrentUser();
       
       if (!currentUser) {
         navigate("/login");
@@ -33,7 +33,7 @@ export default function FounderLayout() {
       }
       
       // Load full founder data
-      const founder = await getFounderData();
+      const founder = await getCurrentFounder();
       if (founder) {
         setFounderData(founder);
         
@@ -65,7 +65,7 @@ export default function FounderLayout() {
   }
   
   const handleLogout = async () => {
-    await logout();
+    await signOut();
     navigate("/");
   };
   
