@@ -70,6 +70,9 @@ export default function FounderLayout() {
   };
   
   const isActive = (path: string) => location.pathname === path;
+  const stageNumber = typeof founderData.current_stage === 'string'
+    ? parseInt(founderData.current_stage.replace('stage_', ''), 10)
+    : Number(founderData.current_stage || 1);
   
   return (
     <div className="h-screen flex flex-col bg-neutral-50 overflow-hidden">
@@ -187,7 +190,7 @@ export default function FounderLayout() {
                   icon={<BookOpen className="w-5 h-5" />}
                   label="System Document"
                   active={isActive("/rsd")}
-                  locked={parseInt(founderData.current_stage?.replace('stage_', '') || '1') < 4}
+                  locked={stageNumber < 4}
                 />
                 
                 <NavItem 
