@@ -3,6 +3,7 @@ import { useState } from "react";
 import React from "react";
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { signInFounder, getCurrentFounder } from '../lib/authManager';
+import { resendFounderVerificationRateLimited } from '../lib/api';
 import logoImage from '../assets/ffa6cb3f0d02afe82155542d62a0d3bbbbcaa910.png';
 
 export default function Login() {
@@ -11,10 +12,14 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setVerificationMessage("");
     setIsLoading(true);
     
     if (!email || !password) {
@@ -54,6 +59,53 @@ export default function Login() {
     }
   };
 
+  const requiresVerification = /email.*not.*confirmed/i.test(error);
+
+  const handleResendVerification = async () => {
+    if (!email) {
+      setVerificationMessage('Enter your email above first, then resend verification.');
+      return;
+    }
+
+    setVerificationMessage("");
+    setIsResendingVerification(true);
+
+    try {
+      const result = await resendFounderVerificationRateLimited(email);
+      if (!result.success) {
+        setVerificationMessage(result.error || 'Could not resend verification email.');
+        // Start cooldown timer if rate limited
+        if (result.retryAfter) {
+          setResendCooldown(result.retryAfter);
+          const interval = setInterval(() => {
+            setResendCooldown(prev => {
+              if (prev <= 1) {
+                clearInterval(interval);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+        }
+      } else {
+        setVerificationMessage('Verification email sent. Check inbox and spam folder.');
+        // Set cooldown after successful send
+        setResendCooldown(60);
+        const interval = setInterval(() => {
+          setResendCooldown(prev => {
+            if (prev <= 1) {
+              clearInterval(interval);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -73,7 +125,22 @@ export default function Login() {
             {error && (
               <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-red-800">{error}</div>
+                <div className="text-sm text-red-800 w-full">
+                  <div>{error}</div>
+                  {requiresVerification && (
+                    <button
+                      type="button"
+                      onClick={handleResendVerification}
+                      disabled={isResendingVerification || resendCooldown > 0}
+                      className="mt-2 text-xs px-3 py-1.5 bg-white border border-red-300 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                    >
+                      {isResendingVerification ? 'Resending...' : resendCooldown > 0 ? `Retry in ${resendCooldown}s` : 'Resend verification email'}
+                    </button>
+                  )}
+                  {verificationMessage && (
+                    <div className="mt-2 text-xs text-red-700">{verificationMessage}</div>
+                  )}
+                </div>
               </div>
             )}
 

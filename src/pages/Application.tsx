@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import React from "react";
 import { AlertCircle, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { signUpFounder } from "../lib/authManager";
-import { submitApplication, joinWaitlist, supabase } from "../lib/api";
+import { submitApplication, joinWaitlist, supabase, resendFounderVerificationRateLimited } from "../lib/api";
 import logoImage from '../assets/ffa6cb3f0d02afe82155542d62a0d3bbbbcaa910.png';
 
 export default function Application() {
@@ -24,6 +24,9 @@ export default function Application() {
   const [submitted, setSubmitted] = useState(false);
   const [accepted, setAccepted] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [error, setError] = useState("");
 
   // Check if cohort program is active
@@ -155,6 +158,46 @@ export default function Application() {
       setIsLoading(false);
     }
   };
+
+  const handleResendVerification = async () => {
+    setVerificationMessage("");
+    setIsResendingVerification(true);
+
+    try {
+      const result = await resendFounderVerificationRateLimited(formData.email);
+      if (!result.success) {
+        setVerificationMessage(result.error || 'Could not resend verification email. Please try again.');
+        // Start cooldown timer if rate limited
+        if (result.retryAfter) {
+          setResendCooldown(result.retryAfter);
+          const interval = setInterval(() => {
+            setResendCooldown(prev => {
+              if (prev <= 1) {
+                clearInterval(interval);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+        }
+      } else {
+        setVerificationMessage('Verification email sent. Check your inbox and spam folder.');
+        // Set cooldown after successful send
+        setResendCooldown(60);
+        const interval = setInterval(() => {
+          setResendCooldown(prev => {
+            if (prev <= 1) {
+              clearInterval(interval);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
   
   if (submitted && accepted === true) {
     return (
@@ -188,11 +231,24 @@ export default function Application() {
           <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg mb-8">
             <div className="text-sm font-medium text-blue-900 mb-3">✅ Next Steps:</div>
             <ol className="space-y-2 text-sm text-blue-800 list-decimal list-inside">
-              <li><strong>Check your email</strong> - Confirm your account if Supabase requires it (check spam folder)</li>
+              <li><strong>Check your email</strong> - Confirm your account before first login (check spam folder)</li>
               <li><strong>Sign in</strong> with your email and password below</li>
               <li><strong>Complete onboarding</strong> - Set up your business profile</li>
               <li><strong>Access dashboard</strong> - Submit your first weekly commit</li>
             </ol>
+
+            <div className="mt-4">
+              <button
+                onClick={handleResendVerification}
+                disabled={isResendingVerification || resendCooldown > 0}
+                className="text-sm px-4 py-2 bg-white border border-blue-300 text-blue-800 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+              >
+                {isResendingVerification ? 'Resending...' : resendCooldown > 0 ? `Retry in ${resendCooldown}s` : 'Resend verification email'}
+              </button>
+              {verificationMessage && (
+                <p className="text-xs text-blue-900 mt-2">{verificationMessage}</p>
+              )}
+            </div>
           </div>
 
           {/* Social Sign In Options */}

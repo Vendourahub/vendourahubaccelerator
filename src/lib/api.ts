@@ -490,6 +490,157 @@ export async function adminGetEmailLogs(): Promise<any[]> {
 }
 
 // ============================================================================
+// EMAIL VERIFICATION - RATE LIMITED RESEND
+// ============================================================================
+
+const RESEND_RATE_LIMIT = {
+  maxAttemptsPerHour: 5,
+  cooldownSeconds: 60, // Must wait this long between attempts
+};
+
+export async function resendFounderVerificationRateLimited(email: string): Promise<{
+  success: boolean;
+  error?: string;
+  retryAfter?: number; // Seconds until next attempt allowed
+}> {
+  try {
+    // Check recent attempts in the last 60 seconds from last attempt or hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const lastAttemptTime = new Date(Date.now() - RESEND_RATE_LIMIT.cooldownSeconds * 1000);
+
+    // Get recent attempts from this email
+    const { data: recentAttempts, error: queryError } = await supabase
+      .from('email_resend_attempts')
+      .select('attempted_at')
+      .eq('email', email)
+      .gte('attempted_at', oneHourAgo.toISOString())
+      .order('attempted_at', { ascending: false });
+
+    if (queryError) {
+      console.error('Failed to check rate limit:', queryError);
+      // Don't block on query error; log it but continue
+    }
+
+    const attempts = recentAttempts || [];
+
+    // Check if exceeded hourly limit
+    if (attempts.length >= RESEND_RATE_LIMIT.maxAttemptsPerHour) {
+      // Log this attempt as rate-limited
+      await supabase
+        .from('email_resend_attempts')
+        .insert({
+          email,
+          attempted_at: new Date().toISOString(),
+          success: false,
+          error_message: 'Rate limit exceeded',
+        });
+
+      // Calculate retry time (when oldest attempt expires)
+      const oldestAttempt = new Date(attempts[attempts.length - 1].attempted_at);
+      const retryTime = new Date(oldestAttempt.getTime() + 60 * 60 * 1000); // 1 hour after oldest
+      const retryAfter = Math.max(1, Math.ceil((retryTime.getTime() - Date.now()) / 1000));
+
+      return {
+        success: false,
+        error: `Too many resend attempts. Please try again in ${retryAfter} seconds.`,
+        retryAfter,
+      };
+    }
+
+    // Check cooldown (must wait 60 seconds since last attempt)
+    if (attempts.length > 0) {
+      const lastAttempt = new Date(attempts[0].attempted_at);
+      const timeSinceLastAttempt = (Date.now() - lastAttempt.getTime()) / 1000;
+
+      if (timeSinceLastAttempt < RESEND_RATE_LIMIT.cooldownSeconds) {
+        const retryAfter = Math.ceil(
+          RESEND_RATE_LIMIT.cooldownSeconds - timeSinceLastAttempt
+        );
+
+        // Log this attempt as rate-limited
+        await supabase
+          .from('email_resend_attempts')
+          .insert({
+            email,
+            attempted_at: new Date().toISOString(),
+            success: false,
+            error_message: `Cooldown period active. Retry in ${retryAfter}s`,
+          });
+
+        return {
+          success: false,
+          error: `Please wait ${retryAfter} seconds before trying again.`,
+          retryAfter,
+        };
+      }
+    }
+
+    // Rate limit check passed; attempt resend
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      // Log failed attempt
+      await supabase
+        .from('email_resend_attempts')
+        .insert({
+          email,
+          attempted_at: new Date().toISOString(),
+          success: false,
+          error_message: 'User not authenticated',
+        });
+
+      return {
+        success: false,
+        error: 'Not authenticated',
+      };
+    }
+
+    // Call Supabase resend
+    const { error: resendError } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (resendError) {
+      // Log failed attempt
+      await supabase
+        .from('email_resend_attempts')
+        .insert({
+          email,
+          attempted_at: new Date().toISOString(),
+          success: false,
+          error_message: resendError.message,
+        });
+
+      return {
+        success: false,
+        error: resendError.message || 'Failed to resend verification email',
+      };
+    }
+
+    // Log successful attempt
+    await supabase
+      .from('email_resend_attempts')
+      .insert({
+        email,
+        attempted_at: new Date().toISOString(),
+        success: true,
+      });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Resend verification error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to resend verification email',
+    };
+  }
+}
+
+// ============================================================================
 // DATA MANAGEMENT
 // ============================================================================
 
