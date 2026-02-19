@@ -60,6 +60,11 @@ export default function Login() {
   };
 
   const requiresVerification = /email.*not.*confirmed/i.test(error);
+  
+  // Make error message more friendly
+  const displayError = requiresVerification 
+    ? "Your email hasn't been confirmed yet. Check your inbox for a verification link, or we can resend it below."
+    : error;
 
   const handleResendVerification = async () => {
     if (!email) {
@@ -126,13 +131,13 @@ export default function Login() {
               <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-red-800 w-full">
-                  <div>{error}</div>
+                  <div>{displayError}</div>
                   {requiresVerification && (
                     <button
                       type="button"
                       onClick={handleResendVerification}
                       disabled={isResendingVerification || resendCooldown > 0}
-                      className="mt-2 text-xs px-3 py-1.5 bg-white border border-red-300 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                      className="mt-3 text-xs px-3 py-1.5 bg-white border border-red-300 text-red-700 rounded hover:bg-red-100 transition-colors disabled:opacity-50 font-medium"
                     >
                       {isResendingVerification ? 'Resending...' : resendCooldown > 0 ? `Retry in ${resendCooldown}s` : 'Resend verification email'}
                     </button>
