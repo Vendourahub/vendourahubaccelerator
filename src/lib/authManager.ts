@@ -154,17 +154,35 @@ export async function signInFounder(
 
     if (profileError || !profile) {
       // Try to create missing profile automatically
-      console.warn('Founder profile not found, attempting to create...');
-      const recoveryResult = await createMissingFounderProfile();
+      console.warn('Founder profile not found, attempting to create for user:', data.user.id);
       
-      if (!recoveryResult.success) {
+      // Create profile directly with user data from sign in
+      const { data: newProfile, error: createError } = await supabase
+        .from('founder_profiles')
+        .insert({
+          user_id: data.user.id,
+          email: data.user.email,
+          name: data.user.user_metadata?.name || '',
+          business_name: data.user.user_metadata?.business_name || '',
+          business_description: data.user.user_metadata?.business_description || '',
+          business_stage: 'ideation',
+          revenue: '0',
+          phone: '',
+          country: '',
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Profile creation error:', createError);
         return { 
           success: false, 
-          error: 'Profile not found and could not be created. Please contact support.' 
+          error: `Profile creation failed: ${createError.message}. Please contact support.` 
         };
       }
 
       // Profile created successfully, continue
+      console.log('✅ Profile created successfully for user:', data.user.id);
       return {
         success: true,
         user: {
@@ -172,7 +190,7 @@ export async function signInFounder(
           email: data.user.email!,
           user_type: 'founder',
         },
-        profile: recoveryResult.data,
+        profile: newProfile,
       };
     }
 
