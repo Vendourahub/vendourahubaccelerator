@@ -19,6 +19,7 @@ CREATE INDEX IF NOT EXISTS idx_email_resend_attempts_email_time
 ALTER TABLE email_resend_attempts ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Only service role (backend) can insert/read
+DROP POLICY IF EXISTS email_resend_attempts_service_role ON email_resend_attempts;
 CREATE POLICY email_resend_attempts_service_role
   ON email_resend_attempts
   FOR ALL
