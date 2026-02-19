@@ -65,7 +65,7 @@ export async function signUpFounder(
           user_type: 'founder',
           ...metadata,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: 'https://vendourahubaccelerator.onrender.com/auth/callback',
       },
     });
 

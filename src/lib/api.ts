@@ -600,7 +600,7 @@ export async function resendFounderVerificationRateLimited(email: string): Promi
       type: 'signup',
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: 'https://vendourahubaccelerator.onrender.com/auth/callback',
       },
     });
 
