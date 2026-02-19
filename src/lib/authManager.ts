@@ -96,6 +96,17 @@ export async function signUpFounder(
 
     if (profileError) {
       console.error('Profile creation error:', profileError);
+      return {
+        success: false,
+        error: `Failed to create profile: ${profileError.message}. Please contact support.`,
+      };
+    }
+
+    if (!profile) {
+      return {
+        success: false,
+        error: 'Profile creation failed. Please contact support.',
+      };
     }
 
     return {
@@ -142,7 +153,27 @@ export async function signInFounder(
       .single();
 
     if (profileError || !profile) {
-      return { success: false, error: 'Founder profile not found. Please use admin login if you are an admin.' };
+      // Try to create missing profile automatically
+      console.warn('Founder profile not found, attempting to create...');
+      const recoveryResult = await createMissingFounderProfile();
+      
+      if (!recoveryResult.success) {
+        return { 
+          success: false, 
+          error: 'Profile not found and could not be created. Please contact support.' 
+        };
+      }
+
+      // Profile created successfully, continue
+      return {
+        success: true,
+        user: {
+          id: data.user.id,
+          email: data.user.email!,
+          user_type: 'founder',
+        },
+        profile: recoveryResult.data,
+      };
     }
 
     return {
@@ -157,6 +188,57 @@ export async function signInFounder(
   } catch (error: any) {
     console.error('Founder signin error:', error);
     return { success: false, error: error.message || 'Sign in failed' };
+  }
+}
+
+/**
+ * Create a missing founder profile for existing users (recovery function)
+ */
+export async function createMissingFounderProfile(): Promise<FounderProfileResult> {
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    // Check if profile already exists
+    const { data: existingProfile } = await supabase
+      .from('founder_profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (existingProfile) {
+      return { success: true, data: existingProfile, error: 'Profile already exists' };
+    }
+
+    // Create new founder profile with minimal data
+    const { data: newProfile, error: createError } = await supabase
+      .from('founder_profiles')
+      .insert({
+        user_id: user.id,
+        email: user.email,
+        name: user.user_metadata?.name || '',
+        business_name: user.user_metadata?.business_name || '',
+        business_description: user.user_metadata?.business_description || '',
+        business_stage: 'ideation',
+        revenue: '0',
+        phone: '',
+        country: '',
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      console.error('Profile creation error:', createError);
+      return { success: false, error: `Profile creation failed: ${createError.message}` };
+    }
+
+    return { success: true, data: newProfile };
+  } catch (error: any) {
+    console.error('Create missing profile error:', error);
+    return { success: false, error: error.message || 'Failed to create profile' };
   }
 }
 
