@@ -145,6 +145,9 @@ export async function signInFounder(
       return { success: false, error: 'Sign in failed' };
     }
 
+    // Clear any cached admin session to avoid role confusion
+    localStorage.removeItem('vendoura_admin_session');
+
     // Get founder profile
     const { data: profile, error: profileError } = await supabase
       .from('founder_profiles')
@@ -336,22 +339,27 @@ export async function signInAdmin(
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
   try {
-    // First check if admin session is cached
-    const cachedAdmin = getCurrentAdminSync();
-    if (cachedAdmin) {
-      return {
-        id: cachedAdmin.user_id || cachedAdmin.id,
-        email: cachedAdmin.email,
-        user_type: 'admin',
-        user_metadata: {},
-      };
-    }
-
-    // If no cached admin, check Supabase
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
       return null;
+    }
+
+    // Only trust cached admin if it matches the active Supabase user
+    const cachedAdmin = getCurrentAdminSync();
+    if (cachedAdmin) {
+      const cachedUserId = cachedAdmin.user_id || cachedAdmin.id;
+      if (cachedUserId === user.id) {
+        return {
+          id: user.id,
+          email: user.email!,
+          user_type: 'admin',
+          user_metadata: user.user_metadata,
+        };
+      }
+
+      // Stale admin cache; clear it
+      localStorage.removeItem('vendoura_admin_session');
     }
 
     // Check if admin

@@ -139,10 +139,10 @@ export default function Dashboard() {
       {/* Welcome */}
       <div>
         <h1 className="text-3xl font-bold mb-2">
-          Welcome back, {activeProfile.name?.split(' ')[0] || activeProfile.full_name?.split(' ')[0] || activeProfile.display_name || 'Founder'}
+          Welcome, {activeProfile.name?.split(' ')[0] || activeProfile.full_name?.split(' ')[0] || activeProfile.display_name || 'Founder'}. Your growth plan is ready.
         </h1>
         <p className="text-neutral-600">
-          {activeProfile.business_name || activeProfile.businessName || 'Your Business'} · Week {activeProfile.current_week || activeProfile.currentWeek || 1} of 12
+          {activeProfile.business_name || activeProfile.businessName || 'Your Business'} · Week {activeProfile.current_week || activeProfile.currentWeek || 1} of 12 · Weekly actions + Friday reports
         </p>
       </div>
       
@@ -164,7 +164,7 @@ export default function Dashboard() {
             <div className="font-bold group-hover:text-blue-700">Commit</div>
             <ArrowRight className="w-4 h-4 text-blue-600" />
           </div>
-          <div className="text-sm text-neutral-600">Set this week's goal</div>
+          <div className="text-sm text-neutral-600">Set this week's revenue action</div>
         </Link>
         
         <Link to="/execute" className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg hover:shadow-lg transition-all group">
@@ -172,7 +172,7 @@ export default function Dashboard() {
             <div className="font-bold group-hover:text-green-700">Execute</div>
             <ArrowRight className="w-4 h-4 text-green-600" />
           </div>
-          <div className="text-sm text-neutral-600">Log your work hours</div>
+          <div className="text-sm text-neutral-600">Log work and outcomes</div>
         </Link>
         
         <Link to="/calendar" className="p-4 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg hover:shadow-lg transition-all group">
@@ -180,7 +180,7 @@ export default function Dashboard() {
             <div className="font-bold group-hover:text-amber-700">Calendar</div>
             <Calendar className="w-4 h-4 text-amber-600" />
           </div>
-          <div className="text-sm text-neutral-600">View deadlines</div>
+          <div className="text-sm text-neutral-600">Deadlines and check-ins</div>
         </Link>
         
         <Link to="/community" className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-lg hover:shadow-lg transition-all group">
@@ -188,27 +188,27 @@ export default function Dashboard() {
             <div className="font-bold group-hover:text-purple-700">Community</div>
             <Users className="w-4 h-4 text-purple-600" />
           </div>
-          <div className="text-sm text-neutral-600">Share & learn</div>
+          <div className="text-sm text-neutral-600">Share wins and get help</div>
         </Link>
       </div>
       
       {/* Revenue Stats */}
       <div className="grid md:grid-cols-3 gap-6">
         <StatCard 
-          label="Current Revenue (30d)"
+          label="Revenue (last 30 days)"
           value={formatCurrency(currentRevenue)}
           change={`+${formatCurrency(revenueDelta)}`}
           positive={revenueDelta > 0}
         />
         
         <StatCard 
-          label="Growth vs Baseline"
+          label="Growth vs baseline"
           value={`${growthPercentage}%`}
           subtext={`Baseline: ${formatCurrency(baseline30d)}`}
         />
         
         <StatCard 
-          label="Progress to 2x"
+          label="Progress toward 2x"
           value={`${Math.round(progressTo2x)}%`}
           subtext={`Target: ${formatCurrency(target2x)}`}
           progress={progressTo2x}
@@ -219,8 +219,8 @@ export default function Dashboard() {
       <div className="bg-white rounded-xl border border-neutral-200 p-8">
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold mb-2">Next Required Action</h2>
-            <p className="text-neutral-600 text-sm">Complete this to stay on track</p>
+            <h2 className="text-xl font-bold mb-2">Your next step</h2>
+            <p className="text-neutral-600 text-sm">Quick action that keeps you on track</p>
           </div>
           {nextAction.urgent && (
             <div className="px-3 py-1 bg-red-100 text-red-700 text-sm font-medium rounded-full">
@@ -257,12 +257,12 @@ export default function Dashboard() {
       
       {/* Weekly Status */}
       <div className="bg-white rounded-xl border border-neutral-200 p-8">
-        <h2 className="text-xl font-bold mb-6">Week {activeProfile.current_week || activeProfile.currentWeek} Status</h2>
+        <h2 className="text-xl font-bold mb-6">This week's plan</h2>
         
         <div className="space-y-4">
           <Link to="/commit">
             <StatusItem 
-              label="Monday: Weekly Commit"
+              label="Monday: Weekly commitment"
               status={activeProfile.current_week > 1 ? "complete" : "pending"}
               deadline="Monday 9am"
               linkText="Go to Commit"
@@ -271,7 +271,7 @@ export default function Dashboard() {
           
           <Link to="/execute">
             <StatusItem 
-              label="Monday-Friday: Execute"
+              label="Mon-Fri: Execution"
               status="in-progress"
               deadline="Throughout week"
               linkText="Log Hours"
@@ -280,7 +280,7 @@ export default function Dashboard() {
           
           <Link to="/report">
             <StatusItem 
-              label="Friday: Revenue Report"
+              label="Friday: Revenue report"
               status="pending"
               deadline="Friday 6pm"
               linkText="Submit Report"
@@ -289,7 +289,7 @@ export default function Dashboard() {
           
           <Link to="/map">
             <StatusItem 
-              label="Weekend: Review & Adjust"
+              label="Weekend: Review and adjust"
               status="pending"
               deadline="Sunday 6pm"
               linkText="Review & Adjust"
@@ -301,7 +301,7 @@ export default function Dashboard() {
       {/* Recent Community Activity */}
       <div className="bg-white rounded-xl border border-neutral-200 p-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold">Recent Community Activity</h2>
+          <h2 className="text-xl font-bold">Recent community activity</h2>
           <Link to="/community" className="text-sm text-neutral-600 hover:text-neutral-900 flex items-center gap-1">
             View all <ArrowRight className="w-4 h-4" />
           </Link>
@@ -469,11 +469,11 @@ function getNextAction(founder: any, commits: WeeklyCommit[], reports: WeeklyRep
   
   if (founder.current_week === 1) {
     return {
-      title: "Submit Your First Commit",
-      description: "State your specific revenue action for this week. Be specific about what you'll do, who you'll target, and expected revenue.",
+      title: "Set your first weekly action",
+      description: "Pick one revenue action for this week and be specific about who, what, and expected revenue.",
       deadline: `${formatWATDate(nextMonday)} at ${formatWATTime(nextMonday)}`,
       link: "/commit",
-      cta: "Go to Weekly Commit",
+      cta: "Write weekly commitment",
       icon: <FileText className="w-5 h-5" />,
       urgent: true,
       overdue: false
@@ -481,11 +481,11 @@ function getNextAction(founder: any, commits: WeeklyCommit[], reports: WeeklyRep
   }
   
   return {
-    title: "Submit Revenue Report",
-    description: "Report this week's revenue results with evidence. Upload screenshots, invoices, or contracts.",
+    title: "Send your revenue report",
+    description: "Share this week's results with evidence so we can track progress and help you improve.",
     deadline: `${formatWATDate(nextFriday)} at ${formatWATTime(nextFriday)}`,
     link: "/report",
-    cta: "Go to Revenue Report",
+    cta: "Open revenue report",
     icon: <FileText className="w-5 h-5" />,
     urgent: false,
     overdue: false

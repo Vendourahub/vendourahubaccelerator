@@ -91,7 +91,7 @@ export default function Onboarding() {
       {/* Header */}
       <header className="bg-white border-b border-neutral-200">
         <div className="max-w-5xl mx-auto px-8 py-6">
-          <div className="font-bold text-2xl">Vendoura</div>
+          <div className="font-bold text-2xl">Vendoura Accelerator</div>
         </div>
       </header>
       
@@ -107,12 +107,12 @@ export default function Onboarding() {
           </div>
           
           <h1 className="text-3xl font-bold mb-3">
-            {step === 1 ? "Tell us about your business" : "Set your revenue baseline"}
+            {step === 1 ? "Let's tailor your growth plan" : "Set your revenue baseline"}
           </h1>
           <p className="text-neutral-600">
             {step === 1 
-              ? "This context helps us provide relevant guidance for your weekly commits" 
-              : "These numbers establish your starting point for measuring growth"}
+              ? "Share a few details so we can tailor weekly actions and mentor feedback." 
+              : "These numbers are your starting line. We will track progress from here."}
           </p>
         </div>
         
@@ -120,19 +120,19 @@ export default function Onboarding() {
         {step === 1 && (
           <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-8 space-y-6">
             <div>
-              <label className="block font-medium mb-2">Business Name *</label>
+              <label className="block font-medium mb-2">Business name *</label>
               <input 
                 type="text"
                 required
                 value={formData.businessName}
                 onChange={(e) => setFormData({...formData, businessName: e.target.value})}
                 className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
-                placeholder="Acme Corp"
+                placeholder="e.g., Vendoura Labs"
               />
             </div>
             
             <div>
-              <label className="block font-medium mb-2">Business Model *</label>
+              <label className="block font-medium mb-2">Business model *</label>
               <select 
                 value={formData.businessModel}
                 onChange={(e) => setFormData({...formData, businessModel: e.target.value as any})}
@@ -148,21 +148,21 @@ export default function Onboarding() {
             </div>
             
             <div>
-              <label className="block font-medium mb-2">What do you sell? *</label>
+              <label className="block font-medium mb-2">What do you sell, and who is it for? *</label>
               <textarea 
                 required
                 value={formData.productDescription}
                 onChange={(e) => setFormData({...formData, productDescription: e.target.value})}
                 className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent min-h-24"
-                placeholder="Project management tool for design teams. Helps track deliverables, feedback, and revisions."
+                placeholder="e.g., WhatsApp automation for salons that helps manage bookings and reminders."
               />
               <div className="text-xs text-neutral-500 mt-2">
-                Be specific about what problem you solve and for whom
+                The clearer this is, the better we can tailor your weekly actions.
               </div>
             </div>
             
             <div>
-              <label className="block font-medium mb-2">Current Customer Count *</label>
+              <label className="block font-medium mb-2">Active customers today *</label>
               <input 
                 type="number"
                 required
@@ -170,12 +170,12 @@ export default function Onboarding() {
                 value={formData.customerCount}
                 onChange={(e) => setFormData({...formData, customerCount: e.target.value})}
                 className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
-                placeholder="50"
+                placeholder="e.g., 25"
               />
             </div>
             
             <div>
-              <label className="block font-medium mb-2">Pricing Model *</label>
+              <label className="block font-medium mb-2">Typical pricing *</label>
               <div className="flex items-center gap-3">
                 <span className="text-2xl text-neutral-400">₦</span>
                 <input 
@@ -185,12 +185,12 @@ export default function Onboarding() {
                   value={formData.pricing}
                   onChange={(e) => setFormData({...formData, pricing: e.target.value})}
                   className="flex-1 px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
-                  placeholder="5000"
+                  placeholder="e.g., 10000"
                 />
                 <span className="text-neutral-600">per hour</span>
               </div>
               <div className="text-xs text-neutral-500 mt-2">
-                Your typical hourly rate (e.g., ₦5,000/hour or ₦15,000/hour)
+                A typical price point we should use when planning weekly actions.
               </div>
             </div>
             
@@ -199,7 +199,7 @@ export default function Onboarding() {
               disabled={!formData.businessName || !formData.productDescription || !formData.customerCount || !formData.pricing}
               className="w-full py-4 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors font-medium disabled:bg-neutral-300 disabled:cursor-not-allowed"
             >
-              Continue to Revenue Baseline
+              Next: set your baseline
             </button>
           </div>
         )}
@@ -211,7 +211,7 @@ export default function Onboarding() {
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-blue-900">
-                  <strong>Why we need this:</strong> Your revenue baseline is how we measure progress. 
+                  <strong>Why we ask:</strong> This is how we measure progress. 
                   The goal is 2x growth by Week 8 and 4x by Week 12.
                 </div>
               </div>
