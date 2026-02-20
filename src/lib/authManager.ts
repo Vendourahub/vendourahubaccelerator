@@ -36,6 +36,12 @@ export interface AdminAuthResult {
   error?: string;
 }
 
+export interface AdminProfileResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
+
 export interface AuthResult {
   success: boolean;
   user?: AuthUser;
@@ -572,6 +578,46 @@ export async function getCurrentAdmin(): Promise<any | null> {
   } catch (error: any) {
     console.error('❌ Error getting admin:', error.message);
     return null;
+  }
+}
+
+/**
+ * Update current admin profile
+ */
+export async function updateAdminProfile(updates: any): Promise<AdminProfileResult> {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const payload = {
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error: updateError } = await supabase
+      .from('admin_users')
+      .update(payload)
+      .eq('user_id', user.id)
+      .select('*')
+      .single();
+
+    if (updateError || !data) {
+      return { success: false, error: updateError?.message || 'Failed to update admin profile' };
+    }
+
+    // refresh cached admin session
+    const adminData = {
+      id: user.id,
+      email: user.email,
+      ...data,
+    };
+    localStorage.setItem('vendoura_admin_session', JSON.stringify(adminData));
+
+    return { success: true, data: adminData };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to update admin profile' };
   }
 }
 

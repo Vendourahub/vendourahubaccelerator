@@ -70,6 +70,7 @@ export default function FounderLayout() {
   };
   
   const isActive = (path: string) => location.pathname === path;
+  const founderInitial = founderData?.name ? founderData.name.charAt(0).toUpperCase() : 'F';
   const stageNumber = typeof founderData.current_stage === 'string'
     ? parseInt(founderData.current_stage.replace('stage_', ''), 10)
     : Number(founderData.current_stage || 1);
@@ -114,9 +115,17 @@ export default function FounderLayout() {
                 <div className="font-medium">{founderData.name}</div>
                 <div className="text-neutral-600 text-xs">{founderData.business_name}</div>
               </div>
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                {founderData.name ? founderData.name.charAt(0).toUpperCase() : 'F'}
-              </div>
+              {founderData.profile_photo_url ? (
+                <img
+                  src={founderData.profile_photo_url}
+                  alt="Profile"
+                  className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                  {founderInitial}
+                </div>
+              )}
             </Link>
             
             <button 

@@ -10,6 +10,7 @@ interface FounderData {
   id: string;
   email: string;
   name: string;
+  profile_photo_url?: string;
   business_name: string;
   business_model?: string;
   industry?: string;
@@ -29,6 +30,7 @@ export default function FounderProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     business_name: '',
@@ -104,6 +106,44 @@ export default function FounderProfile() {
     }
   };
 
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !founder) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    if (file.size > 1024 * 1024) {
+      toast.error('Image must be under 1MB');
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const result = await updateFounderProfile({ profile_photo_url: reader.result as string });
+        if (!result.success || !result.data) {
+          toast.error(result.error || 'Failed to update profile photo');
+        } else {
+          setFounder(result.data);
+          toast.success('Profile photo updated');
+        }
+        setUploadingPhoto(false);
+      };
+      reader.onerror = () => {
+        setUploadingPhoto(false);
+        toast.error('Failed to read image file');
+      };
+      reader.readAsDataURL(file);
+    } catch (error: any) {
+      setUploadingPhoto(false);
+      toast.error(error.message || 'Failed to upload profile photo');
+    }
+  };
+
   const handleCancel = () => {
     if (founder) {
       setFormData({
@@ -160,11 +200,33 @@ export default function FounderProfile() {
           {/* Avatar - Overlapping the cover */}
           <div className="relative -mt-16 mb-4">
             <div className="w-24 h-24 bg-white rounded-full border-4 border-white shadow-lg flex items-center justify-center">
-              <div className="w-20 h-20 bg-neutral-900 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                {getInitials(founder.name || 'F')}
-              </div>
+                {founder.profile_photo_url ? (
+                  <img
+                    src={founder.profile_photo_url}
+                    alt="Profile"
+                    className="w-20 h-20 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-20 h-20 bg-neutral-900 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                    {getInitials(founder.name || 'F')}
+                  </div>
+                )}
             </div>
           </div>
+
+            <div className="mb-6">
+              <label className="inline-flex items-center px-3 py-2 bg-neutral-100 hover:bg-neutral-200 rounded-lg cursor-pointer text-sm font-medium transition-colors">
+                {uploadingPhoto ? 'Uploading...' : 'Upload Profile Photo'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                  disabled={uploadingPhoto}
+                />
+              </label>
+              <div className="text-xs text-neutral-500 mt-2">JPG/PNG, max 1MB</div>
+            </div>
 
           {/* Name and Actions */}
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">

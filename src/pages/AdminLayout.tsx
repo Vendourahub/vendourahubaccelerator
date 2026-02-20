@@ -226,6 +226,13 @@ export default function AdminLayout() {
     return permissions[item.permission as keyof typeof permissions];
   };
 
+  const adminInitials = (admin.name || 'A')
+    .split(' ')
+    .map((part: string) => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
   return (
     <div className="h-screen flex flex-col bg-neutral-50 overflow-hidden">
       {/* Admin Header - Fixed */}
@@ -258,6 +265,17 @@ export default function AdminLayout() {
                 <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">{formatWATDateTime(currentTime)}</span>
               </div>
+              {admin.profile_photo_url ? (
+                <img
+                  src={admin.profile_photo_url}
+                  alt="Admin profile"
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border border-neutral-700"
+                />
+              ) : (
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-neutral-700 text-white flex items-center justify-center text-xs sm:text-sm font-bold border border-neutral-600">
+                  {adminInitials}
+                </div>
+              )}
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors text-xs sm:text-sm"

@@ -3,13 +3,13 @@ import { Shield, User, Mail, Check, Edit2, X, Save, Settings, Lock, LogOut } fro
 import React from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner@2.0.3';
-import { getCurrentAdminSync, signOut } from '../../lib/authManager';
-import * as storage from '../../lib/localStorage';
+import { getCurrentAdminSync, signOut, updateAdminProfile } from '../../lib/authManager';
 
 interface AdminProfile {
   id: string;
   email: string;
   name: string;
+  profile_photo_url?: string;
   admin_role: 'super_admin' | 'program_manager' | 'operations';
   created_at: string;
 }
@@ -20,6 +20,7 @@ export default function AdminProfile() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
   });
@@ -55,30 +56,66 @@ export default function AdminProfile() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!admin) return;
 
     try {
       setSaving(true);
-      
-      // Update admin in localStorage
-      const success = storage.updateAdmin(admin.id, {
+
+      const result = await updateAdminProfile({
         name: formData.name,
       });
 
-      if (success) {
-        setAdmin({ ...admin, name: formData.name });
+      if (result.success && result.data) {
+        setAdmin(result.data);
         setEditing(false);
         toast.success('Profile updated successfully');
-        loadProfile(); // Reload to ensure consistency
       } else {
-        toast.error('Failed to update profile');
+        toast.error(result.error || 'Failed to update profile');
       }
     } catch (error: any) {
       console.error('Error saving profile:', error);
       toast.error('Failed to save changes');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !admin) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    if (file.size > 1024 * 1024) {
+      toast.error('Image must be under 1MB');
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const result = await updateAdminProfile({ profile_photo_url: reader.result as string });
+        if (!result.success || !result.data) {
+          toast.error(result.error || 'Failed to update profile photo');
+        } else {
+          setAdmin(result.data);
+          toast.success('Profile photo updated');
+        }
+        setUploadingPhoto(false);
+      };
+      reader.onerror = () => {
+        setUploadingPhoto(false);
+        toast.error('Failed to read image file');
+      };
+      reader.readAsDataURL(file);
+    } catch (error: any) {
+      setUploadingPhoto(false);
+      toast.error(error.message || 'Failed to upload profile photo');
     }
   };
 
@@ -178,9 +215,17 @@ export default function AdminProfile() {
             <div className="relative -mt-16 mb-4 flex items-end justify-between">
               <div className="relative">
                 <div className="w-24 h-24 bg-white rounded-full border-4 border-white shadow-xl flex items-center justify-center">
-                  <div className="w-20 h-20 bg-neutral-900 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                    {getInitials(admin.name)}
-                  </div>
+                  {admin.profile_photo_url ? (
+                    <img
+                      src={admin.profile_photo_url}
+                      alt="Profile"
+                      className="w-20 h-20 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 bg-neutral-900 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                      {getInitials(admin.name)}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -196,6 +241,20 @@ export default function AdminProfile() {
             </div>
 
             {/* Name and Role */}
+            <div className="mb-6">
+              <label className="inline-flex items-center px-3 py-2 bg-neutral-100 hover:bg-neutral-200 rounded-lg cursor-pointer text-sm font-medium transition-colors">
+                {uploadingPhoto ? 'Uploading...' : 'Upload Profile Photo'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                  disabled={uploadingPhoto}
+                />
+              </label>
+              <div className="text-xs text-neutral-500 mt-2">JPG/PNG, max 1MB</div>
+            </div>
+
             <div className="mb-6">
               <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h1 className="text-2xl sm:text-3xl font-bold">{admin.name}</h1>
