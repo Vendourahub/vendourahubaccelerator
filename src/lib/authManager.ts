@@ -120,6 +120,11 @@ export async function signInFounder(
   password: string
 ): Promise<FounderAuthResult> {
   try {
+    await supabase.auth.signOut();
+    localStorage.removeItem('vendoura_admin_session');
+    localStorage.removeItem(ACTIVE_FOUNDER_IDENTITY_KEY);
+    localStorage.removeItem(ACTIVE_ROLE_KEY);
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -287,6 +292,11 @@ export async function signInAdmin(
 ): Promise<AdminAuthResult> {
   try {
     console.log('🔐 Attempting admin sign in for:', email);
+
+    await supabase.auth.signOut();
+    localStorage.removeItem('vendoura_admin_session');
+    localStorage.removeItem(ACTIVE_FOUNDER_IDENTITY_KEY);
+    localStorage.removeItem(ACTIVE_ROLE_KEY);
     
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -363,6 +373,24 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     }
 
     const activeRole = localStorage.getItem(ACTIVE_ROLE_KEY);
+    const cachedFounderIdentityRaw = localStorage.getItem(ACTIVE_FOUNDER_IDENTITY_KEY);
+
+    if (cachedFounderIdentityRaw) {
+      try {
+        const cachedFounderIdentity = JSON.parse(cachedFounderIdentityRaw) as { user_id?: string; email?: string };
+        if (cachedFounderIdentity.user_id === user.id) {
+          return {
+            id: user.id,
+            email: user.email!,
+            user_type: 'founder',
+            user_metadata: user.user_metadata,
+          };
+        }
+      } catch {
+        localStorage.removeItem(ACTIVE_FOUNDER_IDENTITY_KEY);
+      }
+    }
+
     if (activeRole === 'founder') {
       return {
         id: user.id,
@@ -370,6 +398,23 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         user_type: 'founder',
         user_metadata: user.user_metadata,
       };
+    }
+
+    if (activeRole === 'admin') {
+      const { data: forcedAdmin } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (forcedAdmin) {
+        return {
+          id: user.id,
+          email: user.email!,
+          user_type: 'admin',
+          user_metadata: user.user_metadata,
+        };
+      }
     }
 
     // Only trust cached admin if it matches the active Supabase user

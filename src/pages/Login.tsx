@@ -39,7 +39,7 @@ export default function Login() {
       }
       
       // Check if onboarding is complete
-      const profile = await getCurrentFounder();
+      const profile = result.profile || await getCurrentFounder();
       
       if (!profile) {
         setError('Founder profile not found');
