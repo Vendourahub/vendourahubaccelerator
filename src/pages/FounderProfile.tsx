@@ -214,20 +214,6 @@ export default function FounderProfile() {
             </div>
           </div>
 
-            <div className="mb-6">
-              <label className="inline-flex items-center px-3 py-2 bg-neutral-100 hover:bg-neutral-200 rounded-lg cursor-pointer text-sm font-medium transition-colors">
-                {uploadingPhoto ? 'Uploading...' : 'Upload Profile Photo'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handlePhotoUpload}
-                  disabled={uploadingPhoto}
-                />
-              </label>
-              <div className="text-xs text-neutral-500 mt-2">JPG/PNG, max 1MB</div>
-            </div>
-
           {/* Name and Actions */}
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
             <div>
@@ -239,16 +225,32 @@ export default function FounderProfile() {
                 {founder.business_name || 'Business Name Not Set'}
               </p>
             </div>
-            
-            {!editing && (
-              <button
-                onClick={() => setEditing(true)}
-                className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors flex items-center gap-2 self-start"
-              >
-                <Edit2 className="w-4 h-4" />
-                Edit Profile
-              </button>
-            )}
+
+            <div className="flex items-center gap-2">
+              <div>
+                <label className="inline-flex items-center px-3 py-2 bg-neutral-100 hover:bg-neutral-200 rounded-lg cursor-pointer text-sm font-medium transition-colors">
+                  {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoUpload}
+                    disabled={uploadingPhoto}
+                  />
+                </label>
+                <div className="text-xs text-neutral-500 mt-2">JPG/PNG, max 1MB</div>
+              </div>
+
+              {!editing && (
+                <button
+                  onClick={() => setEditing(true)}
+                  className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors flex items-center gap-2 self-start"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  Edit Profile
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Quick Stats */}
