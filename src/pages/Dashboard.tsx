@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type { FounderProfile, WeeklyCommit, WeeklyReport } from "../lib/founderService";
 import { founderService } from "../lib/founderService";
-import { getCurrentFounder, updateFounderProfile } from "../lib/authManager";
+import { getCurrentFounder } from "../lib/authManager";
 import { formatCurrency } from "../lib/currency";
 import { 
   getNextMonday9am, 
@@ -22,7 +22,6 @@ import {
   formatWATTime 
 } from "../lib/time";
 import { HelpPanel } from "../components/HelpPanel";
-import { toast } from 'sonner@2.0.3';
 
 export default function Dashboard() {
   const [founder, setFounder] = useState<any>(null);
@@ -32,7 +31,6 @@ export default function Dashboard() {
   const [communityPosts, setCommunityPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Load founder data on mount
   useEffect(() => {
@@ -139,84 +137,17 @@ export default function Dashboard() {
   const progressTo2x = baseline30d > 0 ? Math.min((currentRevenue / target2x) * 100, 100) : 0;
   
   const nextAction = getNextAction(activeProfile, commits, reports);
-  const founderInitial = activeProfile?.name
-    ? activeProfile.name.charAt(0).toUpperCase()
-    : 'F';
-
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-
-    if (file.size > 1024 * 1024) {
-      toast.error('Image must be under 1MB');
-      return;
-    }
-
-    try {
-      setUploadingPhoto(true);
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const result = await updateFounderProfile({ profile_photo_url: reader.result as string });
-        if (!result.success || !result.data) {
-          toast.error(result.error || 'Failed to update profile photo');
-        } else {
-          setLiveProfile(result.data as FounderProfile);
-          setFounder(result.data);
-          toast.success('Profile photo updated');
-        }
-        setUploadingPhoto(false);
-      };
-      reader.onerror = () => {
-        setUploadingPhoto(false);
-        toast.error('Failed to read image file');
-      };
-      reader.readAsDataURL(file);
-    } catch (err: any) {
-      setUploadingPhoto(false);
-      toast.error(err.message || 'Failed to upload profile photo');
-    }
-  };
   
   return (
     <div className="space-y-6">
       {/* Welcome */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">
-            Welcome, {activeProfile.name?.split(' ')[0] || activeProfile.full_name?.split(' ')[0] || activeProfile.display_name || 'Founder'}. Your growth plan is ready.
-          </h1>
-          <p className="text-neutral-600">
-            {activeProfile.business_name || activeProfile.businessName || 'Your Business'} · Week {activeProfile.current_week || activeProfile.currentWeek || 1} of 12 · Weekly actions + Friday reports
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {activeProfile.profile_photo_url ? (
-            <img
-              src={activeProfile.profile_photo_url}
-              alt="Profile"
-              className="w-14 h-14 rounded-full object-cover border border-neutral-200"
-            />
-          ) : (
-            <div className="w-14 h-14 rounded-full bg-neutral-900 text-white flex items-center justify-center text-lg font-bold">
-              {founderInitial}
-            </div>
-          )}
-          <label className="inline-flex items-center px-3 py-2 bg-neutral-100 hover:bg-neutral-200 rounded-lg cursor-pointer text-sm font-medium transition-colors">
-            {uploadingPhoto ? 'Uploading...' : 'Change photo'}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhotoUpload}
-              disabled={uploadingPhoto}
-            />
-          </label>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold mb-2">
+          Welcome, {activeProfile.name?.split(' ')[0] || activeProfile.full_name?.split(' ')[0] || activeProfile.display_name || 'Founder'}. Your growth plan is ready.
+        </h1>
+        <p className="text-neutral-600">
+          {activeProfile.business_name || activeProfile.businessName || 'Your Business'} · Week {activeProfile.current_week || activeProfile.currentWeek || 1} of 12 · Weekly actions + Friday reports
+        </p>
       </div>
       
       {/* Lock Warning */}
