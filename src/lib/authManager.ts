@@ -7,9 +7,59 @@ import { supabase } from './api';
 
 const ACTIVE_ROLE_KEY = 'vendoura_active_role';
 const ACTIVE_FOUNDER_IDENTITY_KEY = 'vendoura_founder_identity';
+const DEVICE_ID_KEY = 'vendoura_device_id';
+const SESSION_CONTEXT_KEY = 'vendoura_session_context';
+
+type SessionRole = 'founder' | 'admin';
+type SessionContext = {
+  device_id: string;
+  user_id: string;
+  email: string;
+  role: SessionRole;
+  updated_at: string;
+};
 
 function normalizeEmail(value?: string | null): string {
   return (value || '').trim().toLowerCase();
+}
+
+function getOrCreateDeviceId(): string {
+  const existing = localStorage.getItem(DEVICE_ID_KEY);
+  if (existing) return existing;
+
+  const generated = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `device_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+  localStorage.setItem(DEVICE_ID_KEY, generated);
+  return generated;
+}
+
+function saveSessionContext(userId: string, email: string, role: SessionRole): void {
+  const context: SessionContext = {
+    device_id: getOrCreateDeviceId(),
+    user_id: userId,
+    email: normalizeEmail(email),
+    role,
+    updated_at: new Date().toISOString(),
+  };
+
+  localStorage.setItem(SESSION_CONTEXT_KEY, JSON.stringify(context));
+}
+
+function getSessionContext(): SessionContext | null {
+  try {
+    const raw = localStorage.getItem(SESSION_CONTEXT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as SessionContext;
+  } catch {
+    localStorage.removeItem(SESSION_CONTEXT_KEY);
+    return null;
+  }
+}
+
+function clearSessionContext(): void {
+  localStorage.removeItem(SESSION_CONTEXT_KEY);
 }
 
 function saveFounderIdentity(userId: string, email?: string | null): void {
@@ -124,6 +174,7 @@ export async function signInFounder(
     localStorage.removeItem('vendoura_admin_session');
     localStorage.removeItem(ACTIVE_FOUNDER_IDENTITY_KEY);
     localStorage.removeItem(ACTIVE_ROLE_KEY);
+    clearSessionContext();
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -147,6 +198,7 @@ export async function signInFounder(
     localStorage.removeItem('vendoura_admin_session');
     localStorage.setItem(ACTIVE_ROLE_KEY, 'founder');
     saveFounderIdentity(data.user.id, data.user.email);
+    saveSessionContext(data.user.id, data.user.email || email, 'founder');
 
     // Get founder profile
     const { data: profile, error: profileError } = await supabase
@@ -297,6 +349,7 @@ export async function signInAdmin(
     localStorage.removeItem('vendoura_admin_session');
     localStorage.removeItem(ACTIVE_FOUNDER_IDENTITY_KEY);
     localStorage.removeItem(ACTIVE_ROLE_KEY);
+    clearSessionContext();
     
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -344,6 +397,7 @@ export async function signInAdmin(
     localStorage.setItem('vendoura_admin_session', JSON.stringify(adminData));
     localStorage.setItem(ACTIVE_ROLE_KEY, 'admin');
     localStorage.removeItem(ACTIVE_FOUNDER_IDENTITY_KEY);
+    saveSessionContext(data.user.id, data.user.email || email, 'admin');
     console.log('💾 Admin session stored in localStorage');
 
     return {
@@ -372,6 +426,24 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       return null;
     }
 
+    const currentDeviceId = getOrCreateDeviceId();
+    const sessionContext = getSessionContext();
+    if (sessionContext) {
+      const contextMatches =
+        sessionContext.device_id === currentDeviceId &&
+        sessionContext.user_id === user.id &&
+        sessionContext.email === normalizeEmail(user.email);
+
+      if (!contextMatches) {
+        localStorage.removeItem('vendoura_admin_session');
+        localStorage.removeItem(ACTIVE_FOUNDER_IDENTITY_KEY);
+        localStorage.removeItem(ACTIVE_ROLE_KEY);
+        clearSessionContext();
+        await supabase.auth.signOut();
+        return null;
+      }
+    }
+
     const activeRole = localStorage.getItem(ACTIVE_ROLE_KEY);
     const cachedFounderIdentityRaw = localStorage.getItem(ACTIVE_FOUNDER_IDENTITY_KEY);
 
@@ -392,6 +464,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     }
 
     if (activeRole === 'founder') {
+      saveSessionContext(user.id, user.email!, 'founder');
       return {
         id: user.id,
         email: user.email!,
@@ -408,6 +481,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         .maybeSingle();
 
       if (forcedAdmin) {
+        saveSessionContext(user.id, user.email!, 'admin');
         return {
           id: user.id,
           email: user.email!,
@@ -422,6 +496,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     if (cachedAdmin) {
       const cachedUserId = cachedAdmin.user_id || cachedAdmin.id;
       if (cachedUserId === user.id) {
+        saveSessionContext(user.id, user.email!, 'admin');
         return {
           id: user.id,
           email: user.email!,
@@ -441,10 +516,13 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       .eq('user_id', user.id)
       .single();
 
+    const resolvedRole: SessionRole = admin ? 'admin' : 'founder';
+    saveSessionContext(user.id, user.email!, resolvedRole);
+
     return {
       id: user.id,
       email: user.email!,
-      user_type: admin ? 'admin' : 'founder',
+      user_type: resolvedRole,
       user_metadata: user.user_metadata,
     };
   } catch {
@@ -767,6 +845,7 @@ export async function signOut(): Promise<void> {
     localStorage.removeItem('vendoura_admin_session');
     localStorage.removeItem(ACTIVE_FOUNDER_IDENTITY_KEY);
     localStorage.removeItem(ACTIVE_ROLE_KEY);
+    clearSessionContext();
     console.log('🔓 Admin session cleared from localStorage');
     
     // Sign out from Supabase
