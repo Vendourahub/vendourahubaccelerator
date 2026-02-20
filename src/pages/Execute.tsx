@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Clock, Play, Pause, CheckCircle, AlertCircle, TrendingUp, Trash2, Calendar as CalendarIcon } from "lucide-react";
 import { Link } from "react-router";
-import { getFounderData } from "../lib/auth";
+import { getCurrentFounder } from "../lib/authManager";
 import { formatCurrency } from "../lib/currency";
 import { formatWATDate, formatWATTime, getNextFriday6pm } from "../lib/time";
 import { projectId, publicAnonKey } from "../utils/supabase/info";
@@ -23,6 +23,17 @@ interface TimerState {
   description: string;
 }
 
+async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit, timeoutMs = 12000): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export default function Execute() {
   const [founder, setFounder] = useState<any>(null);
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
@@ -37,9 +48,8 @@ export default function Execute() {
 
   // Load founder data and timer state on mount
   useEffect(() => {
-    loadFounderData();
+    loadFounderDataAndLogs();
     loadTimerState();
-    loadExecutionLogs();
   }, []);
 
   // Persist timer state to localStorage and update every second
@@ -100,21 +110,23 @@ export default function Execute() {
     }
   };
 
-  const loadFounderData = async () => {
+  const loadFounderDataAndLogs = async () => {
     try {
-      const founderData = await getFounderData();
+      const founderData = await getCurrentFounder();
       if (founderData) {
         setFounder(founderData);
+        await loadExecutionLogs(founderData);
       }
     } catch (error) {
       console.error("Error loading founder data:", error);
+      setLoadingLogs(false);
     }
   };
 
-  const loadExecutionLogs = async () => {
+  const loadExecutionLogs = async (founderDataOverride?: any) => {
     try {
       setLoadingLogs(true);
-      const founderData = await getFounderData();
+      const founderData = founderDataOverride || founder;
       
       if (!founderData) {
         setLoadingLogs(false);
@@ -124,19 +136,21 @@ export default function Execute() {
       const weekNumber = founderData.current_week || founderData.currentWeek || 1;
       
       // Fetch execution logs from server
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `https://${projectId}.supabase.co/functions/v1/make-server-eddbcb21/execution/logs/${founderData.id}/${weekNumber}`,
         {
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`
           }
-        }
+        },
+        12000
       );
 
       if (response.ok) {
         const data = await response.json();
         setLogs(data.logs || []);
       } else {
+        console.warn('Execution logs endpoint returned non-OK status:', response.status);
         setLogs([]);
       }
     } catch (error) {
@@ -185,7 +199,7 @@ export default function Execute() {
       const weekNumber = founder.current_week || founder.currentWeek || 1;
       
       // Save to server
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `https://${projectId}.supabase.co/functions/v1/make-server-eddbcb21/execution/logs`,
         {
           method: 'POST',
@@ -201,12 +215,13 @@ export default function Execute() {
             revenue_impact: revenueImpact ? parseFloat(revenueImpact) : 0,
             date: new Date().toISOString().split('T')[0]
           })
-        }
+        },
+        12000
       );
 
       if (response.ok) {
         // Reload logs
-        await loadExecutionLogs();
+        await loadExecutionLogs(founder);
         
         // Reset form
         setTodayHours("");
@@ -234,18 +249,19 @@ export default function Execute() {
     }
 
     try {
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `https://${projectId}.supabase.co/functions/v1/make-server-eddbcb21/execution/logs/${logId}`,
         {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`
           }
-        }
+        },
+        12000
       );
 
       if (response.ok) {
-        await loadExecutionLogs();
+        await loadExecutionLogs(founder);
       } else {
         alert("Failed to delete log");
       }

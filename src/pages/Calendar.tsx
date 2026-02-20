@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { ChevronLeft, ChevronRight, Clock, Video, Users, Target, BarChart3, FileText, AlertCircle } from "lucide-react";
-import { getFounderData } from "../lib/auth";
-import { supabase } from "../lib/api";
+import { getCurrentFounder } from "../lib/authManager";
 
 interface CalendarEvent {
   id: string;
@@ -28,7 +27,7 @@ export default function Calendar() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const founderData = await getFounderData();
+        const founderData = await getCurrentFounder();
         setFounder(founderData);
         setLoading(false);
       } catch (err) {
@@ -144,7 +143,7 @@ export default function Calendar() {
   if (loading || !founder) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-neutral-600">Loading calendar...</div>
+        <div className="text-neutral-600">{loading ? 'Loading calendar...' : 'Unable to load calendar. Please sign in again.'}</div>
       </div>
     );
   }

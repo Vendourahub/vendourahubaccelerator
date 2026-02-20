@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type { FounderProfile, WeeklyCommit, WeeklyReport } from "../lib/founderService";
 import { founderService } from "../lib/founderService";
-import { getFounderData } from "../lib/auth";
+import { getCurrentFounder } from "../lib/authManager";
 import { formatCurrency } from "../lib/currency";
 import { 
   getNextMonday9am, 
@@ -21,7 +21,6 @@ import {
   formatWATDate, 
   formatWATTime 
 } from "../lib/time";
-import { projectId, publicAnonKey } from "../utils/supabase/info";
 import { HelpPanel } from "../components/HelpPanel";
 
 export default function Dashboard() {
@@ -37,9 +36,11 @@ export default function Dashboard() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const founderData = await getFounderData();
+        const founderData = await getCurrentFounder();
         if (founderData) {
           setFounder(founderData);
+        } else {
+          setError("Founder profile not found. Please sign in again.");
         }
         setLoading(false);
       } catch (err) {
@@ -104,7 +105,10 @@ export default function Dashboard() {
   if (!founder) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-neutral-600">Loading dashboard...</div>
+        <div className="text-center">
+          <div className="text-neutral-700 mb-2">Unable to load dashboard</div>
+          <div className="text-sm text-neutral-500">{error || 'Please refresh or sign in again.'}</div>
+        </div>
       </div>
     );
   }
