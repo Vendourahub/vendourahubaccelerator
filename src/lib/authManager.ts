@@ -6,6 +6,18 @@
 import { supabase } from './api';
 
 const ACTIVE_ROLE_KEY = 'vendoura_active_role';
+const ACTIVE_FOUNDER_IDENTITY_KEY = 'vendoura_founder_identity';
+
+function normalizeEmail(value?: string | null): string {
+  return (value || '').trim().toLowerCase();
+}
+
+function saveFounderIdentity(userId: string, email?: string | null): void {
+  localStorage.setItem(
+    ACTIVE_FOUNDER_IDENTITY_KEY,
+    JSON.stringify({ user_id: userId, email: normalizeEmail(email) })
+  );
+}
 
 // ============================================================================
 // TYPES
@@ -121,9 +133,15 @@ export async function signInFounder(
       return { success: false, error: 'Sign in failed' };
     }
 
+    if (normalizeEmail(data.user.email) !== normalizeEmail(email)) {
+      await supabase.auth.signOut();
+      return { success: false, error: 'Identity mismatch detected. Please try again.' };
+    }
+
     // Clear any cached admin session to avoid role confusion
     localStorage.removeItem('vendoura_admin_session');
     localStorage.setItem(ACTIVE_ROLE_KEY, 'founder');
+    saveFounderIdentity(data.user.id, data.user.email);
 
     // Get founder profile
     const { data: profile, error: profileError } = await supabase
@@ -163,6 +181,10 @@ export async function signInFounder(
 
       // Profile created successfully, continue
       console.log('✅ Profile created successfully for user:', data.user.id);
+      if (newProfile?.user_id !== data.user.id) {
+        await supabase.auth.signOut();
+        return { success: false, error: 'Profile identity mismatch. Please contact support.' };
+      }
       return {
         success: true,
         user: {
@@ -172,6 +194,22 @@ export async function signInFounder(
         },
         profile: newProfile,
       };
+    }
+
+    if (profile.user_id !== data.user.id) {
+      await supabase.auth.signOut();
+      return { success: false, error: 'Profile identity mismatch. Please contact support.' };
+    }
+
+    if (profile.email && normalizeEmail(profile.email) !== normalizeEmail(data.user.email)) {
+      const { error: syncError } = await supabase
+        .from('founder_profiles')
+        .update({ email: data.user.email, updated_at: new Date().toISOString() })
+        .eq('user_id', data.user.id);
+
+      if (syncError) {
+        console.warn('Founder email sync warning:', syncError.message);
+      }
     }
 
     return {
@@ -295,6 +333,7 @@ export async function signInAdmin(
     };
     localStorage.setItem('vendoura_admin_session', JSON.stringify(adminData));
     localStorage.setItem(ACTIVE_ROLE_KEY, 'admin');
+    localStorage.removeItem(ACTIVE_FOUNDER_IDENTITY_KEY);
     console.log('💾 Admin session stored in localStorage');
 
     return {
@@ -376,11 +415,43 @@ export async function getCurrentFounder(): Promise<any | null> {
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error || !user) return null;
 
-    const { data: profile } = await supabase
+    const cachedIdentityRaw = localStorage.getItem(ACTIVE_FOUNDER_IDENTITY_KEY);
+    if (cachedIdentityRaw) {
+      try {
+        const cachedIdentity = JSON.parse(cachedIdentityRaw) as { user_id?: string; email?: string };
+        if (cachedIdentity.user_id && cachedIdentity.user_id !== user.id) {
+          localStorage.removeItem(ACTIVE_FOUNDER_IDENTITY_KEY);
+          localStorage.removeItem('vendoura_admin_session');
+        }
+      } catch {
+        localStorage.removeItem(ACTIVE_FOUNDER_IDENTITY_KEY);
+      }
+    }
+
+    const { data: profile, error: profileError } = await supabase
       .from('founder_profiles')
       .select('*')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
+
+    if (profileError || !profile) return null;
+
+    if (profile.user_id !== user.id) {
+      return null;
+    }
+
+    if (profile.email && normalizeEmail(profile.email) !== normalizeEmail(user.email)) {
+      const { error: syncError } = await supabase
+        .from('founder_profiles')
+        .update({ email: user.email, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id);
+
+      if (syncError) {
+        console.warn('Founder email sync warning:', syncError.message);
+      }
+    }
+
+    saveFounderIdentity(user.id, user.email);
 
     return profile || null;
   } catch {
@@ -649,6 +720,7 @@ export async function signOut(): Promise<void> {
   try {
     // Clear admin session from localStorage
     localStorage.removeItem('vendoura_admin_session');
+    localStorage.removeItem(ACTIVE_FOUNDER_IDENTITY_KEY);
     localStorage.removeItem(ACTIVE_ROLE_KEY);
     console.log('🔓 Admin session cleared from localStorage');
     
