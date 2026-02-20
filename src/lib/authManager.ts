@@ -83,38 +83,6 @@ export async function signUpFounder(
       return { success: false, error: 'Sign up failed' };
     }
 
-    // Create founder profile
-    const { data: profile, error: profileError } = await supabase
-      .from('founder_profiles')
-      .insert({
-        user_id: data.user.id,
-        email: data.user.email,
-        name: metadata.name || '',
-        business_name: metadata.business_name || '',
-        business_description: metadata.business_description || '',
-        business_stage: metadata.business_stage || '',
-        revenue: metadata.revenue || '',
-        phone: metadata.phone || '',
-        country: metadata.country || '',
-      })
-      .select()
-      .single();
-
-    if (profileError) {
-      console.error('Profile creation error:', profileError);
-      return {
-        success: false,
-        error: `Failed to create profile: ${profileError.message}. Please contact support.`,
-      };
-    }
-
-    if (!profile) {
-      return {
-        success: false,
-        error: 'Profile creation failed. Please contact support.',
-      };
-    }
-
     return {
       success: true,
       user: {
@@ -122,7 +90,7 @@ export async function signUpFounder(
         email: data.user.email!,
         user_type: 'founder',
       },
-      profile,
+      profile: null,
     };
   } catch (error: any) {
     console.error('Founder signup error:', error);
