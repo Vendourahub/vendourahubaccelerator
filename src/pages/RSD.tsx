@@ -1,7 +1,7 @@
 // RSD Page - Revenue System Document (unlocked at Stage 4)
 import { Link } from "react-router";
 import { getFounderData } from "../lib/auth";
-import { founderService } from "../lib/founderService";
+import { wrappedFounderService as founderService } from "../lib/founderServiceWrapper";
 
 interface RSDSection {
   id: string;

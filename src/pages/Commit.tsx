@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { FileText, AlertCircle, Lightbulb, TrendingUp, CheckCircle, Loader2 } from 'lucide-react';
 import { getFounderData } from '../lib/auth';
-import { founderService } from '../lib/founderService';
+import { wrappedFounderService as founderService } from '../lib/founderServiceWrapper';
 import { formatCurrency } from '../lib/currency';
 import { getNextMonday9am, formatWATDate, formatWATTime } from '../lib/time';
 import { HelpPanel } from '../components/HelpPanel';
