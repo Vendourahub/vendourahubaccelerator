@@ -1,17 +1,8 @@
 import { useNavigate, useLocation, Outlet } from "react-router";
-import { getCurrentUser, isAuthenticated } from "../lib/auth";
-import * as storage from "../lib/localStorage";
+import { getCurrentUser, getCurrentFounder, signOut, AuthUser } from "../lib/authManager";
 import { Link } from "react-router";
 import { useEffect, useState } from "react";
 import React from "react";
-
-// AuthUser type definition
-interface AuthUser {
-  id: string;
-  email: string;
-  user_type: 'founder' | 'admin';
-  user_metadata?: any;
-}
 import { Lock, LogOut, LayoutDashboard, Target, FileText, Map, BookOpen, Calendar, MessageSquare, AlertCircle, Menu, X, User as UserIcon } from "lucide-react";
 import logoImage from '../assets/ffa6cb3f0d02afe82155542d62a0d3bbbbcaa910.png';
 import ScrollToTop from "../components/ScrollToTop";
@@ -25,8 +16,8 @@ export default function FounderLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   useEffect(() => {
-    const checkAuth = () => {
-      const currentUser = getCurrentUser();
+    const checkAuth = async () => {
+      const currentUser = await getCurrentUser();
       
       if (!currentUser) {
         navigate("/login");
@@ -41,8 +32,8 @@ export default function FounderLayout() {
         return;
       }
       
-      // Load full founder data from localStorage
-      const founder = storage.getFounder(currentUser.id);
+      // Load full founder data via Supabase
+      const founder = await getCurrentFounder();
       if (founder) {
         setFounderData(founder);
         
@@ -73,8 +64,8 @@ export default function FounderLayout() {
     );
   }
   
-  const handleLogout = () => {
-    storage.signOut();
+  const handleLogout = async () => {
+    await signOut();
     navigate("/");
   };
   

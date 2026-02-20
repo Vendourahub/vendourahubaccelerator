@@ -12,7 +12,7 @@ import {
   FileText 
 } from "lucide-react";
 import type { FounderProfile, WeeklyCommit, WeeklyReport } from "../lib/founderService";
-import { wrappedFounderService as founderService } from "../lib/founderServiceWrapper";
+import { founderService } from "../lib/founderService";
 import { getCurrentFounder } from "../lib/authManager";
 import { formatCurrency } from "../lib/currency";
 import { 

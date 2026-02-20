@@ -2,8 +2,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { AlertCircle, CheckCircle, Upload, TrendingUp, Clock, Loader2, Camera, FileText } from "lucide-react";
-import { getFounderData } from "../lib/auth";
-import { wrappedFounderService as founderService } from "../lib/founderServiceWrapper";
+import { getCurrentFounder } from "../lib/authManager";
+import { founderService } from "../lib/founderService";
 import { formatCurrency } from "../lib/currency";
 import { formatWATDate, formatWATTime, getNextFriday6pm, getNextSunday6pm } from "../lib/time";
 import { HelpPanel } from "../components/HelpPanel";

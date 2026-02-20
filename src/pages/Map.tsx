@@ -2,8 +2,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { Award, CheckCircle, Target, Lock } from "lucide-react";
-import { getFounderData } from "../lib/auth";
-import { wrappedFounderService as founderService } from "../lib/founderServiceWrapper";
+import { getCurrentFounder } from "../lib/authManager";
+import { founderService } from "../lib/founderService";
 import { formatCurrency } from "../lib/currency";
 
 interface StageData {

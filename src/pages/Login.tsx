@@ -2,8 +2,8 @@ import { Link, useNavigate } from "react-router";
 import { useState } from "react";
 import React from "react";
 import { AlertCircle, Loader2 } from 'lucide-react';
-import { signIn } from '../lib/auth';
-import * as storage from '../lib/localStorage';
+import { signInFounder, getCurrentFounder } from '../lib/authManager';
+import { resendFounderVerificationRateLimited } from '../lib/api';
 import logoImage from '../assets/ffa6cb3f0d02afe82155542d62a0d3bbbbcaa910.png';
 
 export default function Login() {
@@ -29,8 +29,8 @@ export default function Login() {
     }
     
     try {
-      // Sign in (localStorage mode)
-      const result = await signIn(email, password);
+      // Sign in as founder using Supabase
+      const result = await signInFounder(email, password);
       
       if (!result.success) {
         setError(result.error || 'Login failed');
@@ -38,23 +38,16 @@ export default function Login() {
         return;
       }
       
-      // Check user type - only founders can use this login
-      if (result.user?.user_type !== 'founder') {
-        setError('This login is for founders only. Admins should use /admin/login');
-        setIsLoading(false);
-        return;
-      }
+      // Check if onboarding is complete
+      const profile = await getCurrentFounder();
       
-      // Get founder profile from localStorage
-      const founder = storage.getFounder(result.user!.id);
-      
-      if (!founder) {
+      if (!profile) {
         setError('Founder profile not found');
         setIsLoading(false);
         return;
       }
       
-      if (!founder.onboarding_completed) {
+      if (!profile.onboarding_completed) {
         navigate("/onboarding");
       } else {
         navigate("/founder/dashboard");
@@ -66,14 +59,56 @@ export default function Login() {
     }
   };
 
-  const requiresVerification = false; // Email verification not needed in localStorage mode
+  const requiresVerification = /email.*not.*confirmed/i.test(error);
   
   // Make error message more friendly
-  const displayError = error;
+  const displayError = requiresVerification 
+    ? "Your email hasn't been confirmed yet. Check your inbox for a verification link, or we can resend it below."
+    : error;
 
   const handleResendVerification = async () => {
-    // Not applicable in localStorage mode
-    setVerificationMessage('Email verification not required for this login method.');
+    if (!email) {
+      setVerificationMessage('Enter your email above first, then resend verification.');
+      return;
+    }
+
+    setVerificationMessage("");
+    setIsResendingVerification(true);
+
+    try {
+      const result = await resendFounderVerificationRateLimited(email);
+      if (!result.success) {
+        setVerificationMessage(result.error || 'Could not resend verification email.');
+        // Start cooldown timer if rate limited
+        if (result.retryAfter) {
+          setResendCooldown(result.retryAfter);
+          const interval = setInterval(() => {
+            setResendCooldown(prev => {
+              if (prev <= 1) {
+                clearInterval(interval);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+        }
+      } else {
+        setVerificationMessage('Verification email sent. Check inbox and spam folder.');
+        // Set cooldown after successful send
+        setResendCooldown(60);
+        const interval = setInterval(() => {
+          setResendCooldown(prev => {
+            if (prev <= 1) {
+              clearInterval(interval);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
+    } finally {
+      setIsResendingVerification(false);
+    }
   };
 
   return (
