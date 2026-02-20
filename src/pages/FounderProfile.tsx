@@ -5,6 +5,8 @@ import React from 'react';
 import { formatCurrency } from '../lib/currency';
 import { formatWATDate } from '../lib/time';
 import { toast } from 'sonner@2.0.3';
+import { uploadProfilePhoto } from '../lib/profilePhotoService';
+import { uploadProfilePhoto } from '../lib/profilePhotoService';
 
 interface FounderData {
   id: string;
@@ -110,37 +112,38 @@ export default function FounderProfile() {
     const file = event.target.files?.[0];
     if (!file || !founder) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-
-    if (file.size > 1024 * 1024) {
-      toast.error('Image must be under 1MB');
-      return;
-    }
-
     try {
       setUploadingPhoto(true);
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const result = await updateFounderProfile({ profile_photo_url: reader.result as string });
-        if (!result.success || !result.data) {
-          toast.error(result.error || 'Failed to update profile photo');
-        } else {
-          setFounder(result.data);
-          toast.success('Profile photo updated');
-        }
+
+      // Get current user for ID
+      const user = await getCurrentUser();
+      if (!user) {
+        toast.error('Not authenticated');
         setUploadingPhoto(false);
-      };
-      reader.onerror = () => {
+        return;
+      }
+
+      // Upload to Supabase Storage
+      const uploadResult = await uploadProfilePhoto(file, user.id, 'founder');
+      
+      if (!uploadResult.success || !uploadResult.url) {
+        toast.error(uploadResult.error || 'Failed to upload photo');
         setUploadingPhoto(false);
-        toast.error('Failed to read image file');
-      };
-      reader.readAsDataURL(file);
+        return;
+      }
+
+      // Update profile with new photo URL
+      const result = await updateFounderProfile({ profile_photo_url: uploadResult.url });
+      if (!result.success || !result.data) {
+        toast.error(result.error || 'Failed to update profile');
+      } else {
+        setFounder(result.data);
+        toast.success('Profile photo updated');
+      }
+      setUploadingPhoto(false);
     } catch (error: any) {
       setUploadingPhoto(false);
-      toast.error(error.message || 'Failed to upload profile photo');
+      toast.error(error.message || 'Failed to upload photo');
     }
   };
 

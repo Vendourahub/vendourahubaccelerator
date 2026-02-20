@@ -3,7 +3,8 @@ import { Shield, User, Mail, Check, Edit2, X, Save, Settings, Lock, LogOut } fro
 import React from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner@2.0.3';
-import { getCurrentAdminSync, signOut, updateAdminProfile } from '../../lib/authManager';
+import { getCurrentAdminSync, signOut, updateAdminProfile, getCurrentUser } from '../../lib/authManager';
+import { uploadProfilePhoto } from '../../lib/profilePhotoService';
 
 interface AdminProfile {
   id: string;
@@ -85,37 +86,38 @@ export default function AdminProfile() {
     const file = event.target.files?.[0];
     if (!file || !admin) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-
-    if (file.size > 1024 * 1024) {
-      toast.error('Image must be under 1MB');
-      return;
-    }
-
     try {
       setUploadingPhoto(true);
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const result = await updateAdminProfile({ profile_photo_url: reader.result as string });
-        if (!result.success || !result.data) {
-          toast.error(result.error || 'Failed to update profile photo');
-        } else {
-          setAdmin(result.data);
-          toast.success('Profile photo updated');
-        }
+
+      // Get current user for ID
+      const user = await getCurrentUser();
+      if (!user) {
+        toast.error('Not authenticated');
         setUploadingPhoto(false);
-      };
-      reader.onerror = () => {
+        return;
+      }
+
+      // Upload to Supabase Storage
+      const uploadResult = await uploadProfilePhoto(file, user.id, 'admin');
+      
+      if (!uploadResult.success || !uploadResult.url) {
+        toast.error(uploadResult.error || 'Failed to upload photo');
         setUploadingPhoto(false);
-        toast.error('Failed to read image file');
-      };
-      reader.readAsDataURL(file);
+        return;
+      }
+
+      // Update admin profile with new photo URL
+      const result = await updateAdminProfile({ profile_photo_url: uploadResult.url });
+      if (!result.success || !result.data) {
+        toast.error(result.error || 'Failed to update profile');
+      } else {
+        setAdmin(result.data);
+        toast.success('Profile photo updated');
+      }
+      setUploadingPhoto(false);
     } catch (error: any) {
       setUploadingPhoto(false);
-      toast.error(error.message || 'Failed to upload profile photo');
+      toast.error(error.message || 'Failed to upload photo');
     }
   };
 
