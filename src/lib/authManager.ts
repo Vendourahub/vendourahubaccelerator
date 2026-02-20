@@ -5,6 +5,8 @@
 
 import { supabase } from './api';
 
+const ACTIVE_ROLE_KEY = 'vendoura_active_role';
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -121,6 +123,7 @@ export async function signInFounder(
 
     // Clear any cached admin session to avoid role confusion
     localStorage.removeItem('vendoura_admin_session');
+    localStorage.setItem(ACTIVE_ROLE_KEY, 'founder');
 
     // Get founder profile
     const { data: profile, error: profileError } = await supabase
@@ -291,6 +294,7 @@ export async function signInAdmin(
       ...admin
     };
     localStorage.setItem('vendoura_admin_session', JSON.stringify(adminData));
+    localStorage.setItem(ACTIVE_ROLE_KEY, 'admin');
     console.log('💾 Admin session stored in localStorage');
 
     return {
@@ -317,6 +321,16 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
     if (error || !user) {
       return null;
+    }
+
+    const activeRole = localStorage.getItem(ACTIVE_ROLE_KEY);
+    if (activeRole === 'founder') {
+      return {
+        id: user.id,
+        email: user.email!,
+        user_type: 'founder',
+        user_metadata: user.user_metadata,
+      };
     }
 
     // Only trust cached admin if it matches the active Supabase user
@@ -635,6 +649,7 @@ export async function signOut(): Promise<void> {
   try {
     // Clear admin session from localStorage
     localStorage.removeItem('vendoura_admin_session');
+    localStorage.removeItem(ACTIVE_ROLE_KEY);
     console.log('🔓 Admin session cleared from localStorage');
     
     // Sign out from Supabase

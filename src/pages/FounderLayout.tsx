@@ -26,12 +26,6 @@ export default function FounderLayout() {
       
       setUser(currentUser);
       
-      // If user is admin, redirect to admin panel
-      if (currentUser.user_type === 'admin') {
-        navigate("/admin/cohort");
-        return;
-      }
-      
       // Load full founder data via Supabase
       const founder = await getCurrentFounder();
       if (founder) {
@@ -42,6 +36,12 @@ export default function FounderLayout() {
           navigate("/onboarding");
           return;
         }
+      } else if (currentUser.user_type === 'admin') {
+        navigate("/admin/cohort");
+        return;
+      } else {
+        navigate("/login");
+        return;
       }
       
       setLoading(false);
