@@ -5,8 +5,8 @@ interface CommunityPost {
   id: string;
   author_id: string;
   author_name: string;
-  author_avatar: string;
-  topic: string;
+  author_avatar?: string;
+  topic?: string;
   category: string;
   content: string;
   likes: number;
@@ -20,7 +20,7 @@ interface Reply {
   post_id: string;
   author_id: string;
   author_name: string;
-  author_avatar: string;
+  author_avatar?: string;
   content: string;
   likes: number;
   created_at: string;
@@ -30,7 +30,12 @@ interface Reply {
 export async function getAllPosts(c: Context) {
   try {
     const posts = await kv.getByPrefix("community_post_");
-    return c.json({ posts: posts || [] });
+    const sortedPosts = (posts || []).sort((a: CommunityPost, b: CommunityPost) => {
+      const aTime = new Date(a.created_at).getTime();
+      const bTime = new Date(b.created_at).getTime();
+      return bTime - aTime;
+    });
+    return c.json({ posts: sortedPosts });
   } catch (error) {
     console.error("Error fetching posts:", error);
     return c.json({ error: "Failed to fetch posts" }, 500);
@@ -58,21 +63,25 @@ export async function getPost(c: Context) {
 export async function createPost(c: Context) {
   try {
     const body = await c.req.json();
-    const { author_id, author_name, author_avatar, topic, category, content } = body;
+    const { author_name, author_avatar, topic, category, content } = body;
+    const userId = c.get('userId');
+    const userEmail = c.get('userEmail');
+    const user = c.get('user');
+    const displayName = author_name || user?.user_metadata?.name || user?.user_metadata?.full_name || userEmail || 'Founder';
     
-    if (!author_id || !author_name || !topic || !category || !content) {
+    if (!userId || !category || !content?.trim()) {
       return c.json({ error: "Missing required fields" }, 400);
     }
     
     const id = crypto.randomUUID();
     const post: CommunityPost = {
       id,
-      author_id,
-      author_name,
+      author_id: userId,
+      author_name: displayName,
       author_avatar,
-      topic,
+      topic: topic || 'general',
       category,
-      content,
+      content: content.trim(),
       likes: 0,
       reply_count: 0,
       created_at: new Date().toISOString(),
@@ -92,11 +101,10 @@ export async function createPost(c: Context) {
 export async function toggleLikePost(c: Context) {
   try {
     const id = c.req.param("id");
-    const body = await c.req.json();
-    const { user_id } = body;
+    const userId = c.get('userId');
     
-    if (!user_id) {
-      return c.json({ error: "Missing user_id" }, 400);
+    if (!userId) {
+      return c.json({ error: "Unauthorized" }, 401);
     }
     
     const post = await kv.get(`community_post_${id}`) as CommunityPost;
@@ -106,14 +114,14 @@ export async function toggleLikePost(c: Context) {
     }
     
     const liked_by = post.liked_by || [];
-    const hasLiked = liked_by.includes(user_id);
+    const hasLiked = liked_by.includes(userId);
     
     const updatedPost: CommunityPost = {
       ...post,
       likes: hasLiked ? post.likes - 1 : post.likes + 1,
       liked_by: hasLiked 
-        ? liked_by.filter(id => id !== user_id)
-        : [...liked_by, user_id]
+        ? liked_by.filter(id => id !== userId)
+        : [...liked_by, userId]
     };
     
     await kv.set(`community_post_${id}`, updatedPost);
@@ -130,7 +138,13 @@ export async function getReplies(c: Context) {
   try {
     const post_id = c.req.param("id");
     const allReplies = await kv.getByPrefix("community_reply_");
-    const postReplies = allReplies.filter((reply: Reply) => reply.post_id === post_id);
+    const postReplies = allReplies
+      .filter((reply: Reply) => reply.post_id === post_id)
+      .sort((a: Reply, b: Reply) => {
+        const aTime = new Date(a.created_at).getTime();
+        const bTime = new Date(b.created_at).getTime();
+        return aTime - bTime;
+      });
     
     return c.json({ replies: postReplies || [] });
   } catch (error) {
@@ -144,20 +158,29 @@ export async function createReply(c: Context) {
   try {
     const post_id = c.req.param("id");
     const body = await c.req.json();
-    const { author_id, author_name, author_avatar, content } = body;
+    const { author_name, author_avatar, content } = body;
+    const userId = c.get('userId');
+    const userEmail = c.get('userEmail');
+    const user = c.get('user');
+    const displayName = author_name || user?.user_metadata?.name || user?.user_metadata?.full_name || userEmail || 'Founder';
     
-    if (!author_id || !author_name || !content) {
+    if (!userId || !content?.trim()) {
       return c.json({ error: "Missing required fields" }, 400);
+    }
+
+    const post = await kv.get(`community_post_${post_id}`) as CommunityPost;
+    if (!post) {
+      return c.json({ error: "Post not found" }, 404);
     }
     
     const id = crypto.randomUUID();
     const reply: Reply = {
       id,
       post_id,
-      author_id,
-      author_name,
+      author_id: userId,
+      author_name: displayName,
       author_avatar,
-      content,
+      content: content.trim(),
       likes: 0,
       created_at: new Date().toISOString()
     };
@@ -165,7 +188,6 @@ export async function createReply(c: Context) {
     await kv.set(`community_reply_${id}`, reply);
     
     // Update reply count on post
-    const post = await kv.get(`community_post_${post_id}`) as CommunityPost;
     if (post) {
       post.reply_count = (post.reply_count || 0) + 1;
       await kv.set(`community_post_${post_id}`, post);

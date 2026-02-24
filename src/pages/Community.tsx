@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { MessageSquare, Send, Users, Clock, TrendingUp, Filter, Search, Plus, Heart, MessageCircle, Share2, ChevronDown, X, Hash, Check, Copy } from 'lucide-react';
 import { formatWATDateTime } from '../lib/time';
 import { formatCurrency } from '../lib/currency';
-import { getFounderProfile } from '../lib/auth';
+import { getFounderProfile } from '../lib/authManager';
+import { createCommunityPost, createCommunityReply, getCommunityPosts, getCommunityReplies, toggleCommunityPostLike } from '../lib/api';
 import { toast } from 'sonner@2.0.3';
 import { HelpPanel } from '../components/HelpPanel';
 
@@ -24,6 +25,7 @@ interface CommunityPost {
 
 interface Reply {
   id: string;
+  post_id?: string;
   author_id: string;
   author_name: string;
   author_business: string;
@@ -52,109 +54,70 @@ export default function Community() {
   const [replyText, setReplyText] = useState('');
   const [showReplies, setShowReplies] = useState<Record<string, boolean>>({});
   const [newPostCategory, setNewPostCategory] = useState<'win' | 'tactic' | 'question' | 'update'>('update');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     loadFounderAndPosts();
   }, []);
 
+  const mapReplyToUI = (reply: any): Reply => {
+    return {
+      id: reply.id,
+      post_id: reply.post_id,
+      author_id: reply.author_id,
+      author_name: reply.author_name,
+      author_business: reply.author_avatar || 'Founder',
+      content: reply.content,
+      timestamp: reply.created_at,
+    };
+  };
+
+  const mapPostToUI = (post: any, founderProfile: FounderProfile | null, replies: Reply[] = []): CommunityPost => {
+    return {
+      id: post.id,
+      author_id: post.author_id,
+      author_name: post.author_name,
+      author_stage: founderProfile?.current_stage || 1,
+      author_business: post.topic || 'Founder Update',
+      content: post.content,
+      category: post.category,
+      timestamp: post.created_at,
+      likes: post.likes || 0,
+      comments: post.reply_count || replies.length,
+      tags: extractHashtags(post.content),
+      likedBy: post.liked_by || [],
+      replies,
+    };
+  };
+
   const loadFounderAndPosts = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       
       // Get founder profile
       const profileResult = await getFounderProfile();
+      let founderProfile: FounderProfile | null = null;
       if (profileResult.success && profileResult.data) {
+        founderProfile = profileResult.data;
         setFounder(profileResult.data);
+      } else {
+        toast.error('Unable to load founder profile. Please re-login.');
       }
 
-      // Load posts from localStorage (or create default ones)
-      const storedPosts = localStorage.getItem('vendoura_community_posts');
-      if (storedPosts) {
-        setPosts(JSON.parse(storedPosts));
-      } else {
-        // Create some default posts
-        const defaultPosts: CommunityPost[] = [
-          {
-            id: '1',
-            author_id: 'user1',
-            author_name: 'Chioma Eze',
-            author_stage: 2,
-            author_business: 'Lagos Fashion Hub',
-            content: '🎉 Just hit ₦500K this week! The #cold-outreach tactic from last week\'s discussion really works. Sent 200 DMs on #instagram, got 47 responses, closed 12 #sales. Key: personalize the first line.',
-            category: 'win',
-            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-            likes: 24,
-            comments: 8,
-            tags: ['cold-outreach', 'instagram', 'sales'],
-            likedBy: [],
-            replies: []
-          },
-          {
-            id: '2',
-            author_id: 'user2',
-            author_name: 'Emeka Okafor',
-            author_stage: 3,
-            author_business: 'Tech Repair Services',
-            content: 'Tactic that doubled my #conversion rate: I started offering a \"diagnostic before payment\" policy. Customers #trust you more when they see the problem first. Cost me ₦0, increased conversions by 60%. #service',
-            category: 'tactic',
-            timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-            likes: 31,
-            comments: 12,
-            tags: ['conversion', 'trust', 'service'],
-            likedBy: [],
-            replies: []
-          },
-          {
-            id: '3',
-            author_id: 'user3',
-            author_name: 'Fatima Ibrahim',
-            author_stage: 1,
-            author_business: 'Handmade Jewelry',
-            content: 'Question for Stage 2+ founders: How do you handle customers asking for discounts? I\'m getting a lot of \"your competitor sells cheaper\" #objections. Should I lower #pricing or hold firm?',
-            category: 'question',
-            timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-            likes: 5,
-            comments: 15,
-            tags: ['pricing', 'objections'],
-            likedBy: [],
-            replies: []
-          },
-          {
-            id: '4',
-            author_id: 'user4',
-            author_name: 'Tunde Williams',
-            author_stage: 4,
-            author_business: 'Digital Marketing Agency',
-            content: '📊 Week 3 of Stage 4 complete. Revenue: ₦1.2M. Biggest lesson: systemizing follow-ups with a simple spreadsheet increased my repeat customer rate from 15% to 42%. Happy to share the #template. #systems #retention',
-            category: 'update',
-            timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-            likes: 18,
-            comments: 6,
-            tags: ['systems', 'retention', 'template'],
-            likedBy: [],
-            replies: []
-          },
-          {
-            id: '5',
-            author_id: 'user5',
-            author_name: 'Ada Nwosu',
-            author_stage: 2,
-            author_business: 'Catering Services',
-            content: 'Real talk: I almost quit last week. Revenue dropped from ₦300K to ₦180K. But I pushed through, tested a new #pricing package, and bounced back to ₦420K. The weekly reporting kept me accountable. #perseverance #accountability',
-            category: 'win',
-            timestamp: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
-            likes: 42,
-            comments: 20,
-            tags: ['perseverance', 'pricing', 'accountability'],
-            likedBy: [],
-            replies: []
-          }
-        ];
-        localStorage.setItem('vendoura_community_posts', JSON.stringify(defaultPosts));
-        setPosts(defaultPosts);
-      }
+      const apiPosts = await getCommunityPosts();
+      const postsWithReplies = await Promise.all(
+        apiPosts.map(async (post: any) => {
+          const replies = await getCommunityReplies(post.id);
+          return mapPostToUI(post, founderProfile, replies.map(mapReplyToUI));
+        })
+      );
+      setPosts(postsWithReplies);
     } catch (error) {
       console.error('Error loading community:', error);
+      const message = error instanceof Error ? error.message : 'Failed to load community posts';
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -184,90 +147,94 @@ export default function Community() {
       .slice(0, 10);
   };
 
-  const handlePostSubmit = () => {
-    if (!newPost.trim() || !founder) return;
+  const handlePostSubmit = async () => {
+    if (!newPost.trim()) return;
+    if (!founder) {
+      toast.error('Founder profile not loaded. Please refresh and try again.');
+      return;
+    }
 
-    // Extract hashtags from post content
-    const extractedTags = extractHashtags(newPost);
+    try {
+      const createdPost = await createCommunityPost({
+        author_name: founder.name,
+        author_avatar: founder.business_name,
+        topic: founder.business_name,
+        category: newPostCategory,
+        content: newPost,
+      });
 
-    const post: CommunityPost = {
-      id: Date.now().toString(),
-      author_id: founder.id,
-      author_name: founder.name,
-      author_stage: founder.current_stage,
-      author_business: founder.business_name,
-      content: newPost,
-      category: newPostCategory,
-      timestamp: new Date().toISOString(),
-      likes: 0,
-      comments: 0,
-      tags: extractedTags,
-      likedBy: [],
-      replies: []
-    };
+      const post = mapPostToUI(createdPost, founder, []);
 
-    const updatedPosts = [post, ...posts];
-    setPosts(updatedPosts);
-    localStorage.setItem('vendoura_community_posts', JSON.stringify(updatedPosts));
-    
-    setNewPost('');
-    setShowNewPostForm(false);
-    toast.success('Post shared with the community!');
+      const updatedPosts = [post, ...posts];
+      setPosts(updatedPosts);
+      setNewPost('');
+      setShowNewPostForm(false);
+      toast.success('Post shared with the community!');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to post. Please try again.');
+    }
   };
 
-  const handleLike = (postId: string) => {
-    if (!founder) return;
+  const handleLike = async (postId: string) => {
+    if (!founder) {
+      toast.error('Please sign in to like posts.');
+      return;
+    }
 
-    const updatedPosts = posts.map(post => {
-      if (post.id === postId) {
-        const likedBy = post.likedBy || [];
-        const hasLiked = likedBy.includes(founder.id);
-        
-        return {
-          ...post,
-          likes: hasLiked ? post.likes - 1 : post.likes + 1,
-          likedBy: hasLiked 
-            ? likedBy.filter(id => id !== founder.id)
-            : [...likedBy, founder.id]
-        };
-      }
-      return post;
-    });
-    
-    setPosts(updatedPosts);
-    localStorage.setItem('vendoura_community_posts', JSON.stringify(updatedPosts));
+    try {
+      const updatedPostFromApi = await toggleCommunityPostLike(postId);
+      const updatedPosts = posts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            likes: updatedPostFromApi.likes || 0,
+            likedBy: updatedPostFromApi.liked_by || [],
+          };
+        }
+        return post;
+      });
+
+      setPosts(updatedPosts);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to update like.');
+    }
   };
 
-  const handleReply = (postId: string) => {
-    if (!replyText.trim() || !founder) return;
+  const handleReply = async (postId: string) => {
+    if (!replyText.trim()) return;
+    if (!founder) {
+      toast.error('Founder profile not loaded. Please refresh and try again.');
+      return;
+    }
 
-    const reply: Reply = {
-      id: Date.now().toString(),
-      author_id: founder.id,
-      author_name: founder.name,
-      author_business: founder.business_name,
-      content: replyText,
-      timestamp: new Date().toISOString()
-    };
+    try {
+      const createdReply = await createCommunityReply(postId, {
+        author_name: founder.name,
+        author_avatar: founder.business_name,
+        content: replyText,
+      });
 
-    const updatedPosts = posts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          replies: [...(post.replies || []), reply],
-          comments: post.comments + 1
-        };
-      }
-      return post;
-    });
+      const reply = mapReplyToUI(createdReply);
 
-    setPosts(updatedPosts);
-    localStorage.setItem('vendoura_community_posts', JSON.stringify(updatedPosts));
-    
-    setReplyText('');
-    setReplyingTo(null);
-    setShowReplies({ ...showReplies, [postId]: true });
-    toast.success('Reply posted!');
+      const updatedPosts = posts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            replies: [...(post.replies || []), reply],
+            comments: post.comments + 1
+          };
+        }
+        return post;
+      });
+
+      setPosts(updatedPosts);
+      setReplyText('');
+      setReplyingTo(null);
+      setShowReplies({ ...showReplies, [postId]: true });
+      toast.success('Reply posted!');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to post reply.');
+    }
   };
 
   const handleShare = (post: CommunityPost) => {
@@ -390,6 +357,23 @@ export default function Community() {
             </div>
           </div>
         </div>
+
+        {/* Error Banner */}
+        {loadError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-red-800">{loadError}</div>
+              <button
+                type="button"
+                onClick={loadFounderAndPosts}
+                disabled={loading}
+                className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-red-300 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Trending Hashtags */}
         {trendingHashtags.length > 0 && (

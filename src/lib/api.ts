@@ -59,6 +59,139 @@ async function requireAdminUser() {
   return { user, adminProfile };
 }
 
+const edgeBaseUrl = `${supabaseUrl}/functions/v1/make-server-eddbcb21`;
+
+async function buildEdgeHeaders(requireAuth: boolean = false): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (!requireAuth) {
+    return headers;
+  }
+
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error || !session?.access_token) {
+    throw new Error('Not authenticated');
+  }
+
+  headers.Authorization = `Bearer ${session.access_token}`;
+  return headers;
+}
+
+export interface CommunityPostDTO {
+  id: string;
+  author_id: string;
+  author_name: string;
+  author_avatar?: string;
+  topic?: string;
+  category: string;
+  content: string;
+  likes: number;
+  reply_count: number;
+  created_at: string;
+  liked_by: string[];
+}
+
+export interface CommunityReplyDTO {
+  id: string;
+  post_id: string;
+  author_id: string;
+  author_name: string;
+  author_avatar?: string;
+  content: string;
+  likes: number;
+  created_at: string;
+}
+
+export async function getCommunityPosts(): Promise<CommunityPostDTO[]> {
+  const headers = await buildEdgeHeaders(false);
+  const response = await fetch(`${edgeBaseUrl}/community/posts`, {
+    method: 'GET',
+    headers,
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload?.error || 'Failed to fetch community posts');
+  }
+
+  return payload.posts || [];
+}
+
+export async function createCommunityPost(input: {
+  author_name: string;
+  author_avatar?: string;
+  topic?: string;
+  category: 'win' | 'tactic' | 'question' | 'update';
+  content: string;
+}): Promise<CommunityPostDTO> {
+  const headers = await buildEdgeHeaders(true);
+  const response = await fetch(`${edgeBaseUrl}/community/posts`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(input),
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload?.error || 'Failed to create post');
+  }
+
+  return payload.post;
+}
+
+export async function toggleCommunityPostLike(postId: string): Promise<CommunityPostDTO> {
+  const headers = await buildEdgeHeaders(true);
+  const response = await fetch(`${edgeBaseUrl}/community/posts/${postId}/like`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({}),
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload?.error || 'Failed to toggle like');
+  }
+
+  return payload.post;
+}
+
+export async function getCommunityReplies(postId: string): Promise<CommunityReplyDTO[]> {
+  const headers = await buildEdgeHeaders(false);
+  const response = await fetch(`${edgeBaseUrl}/community/posts/${postId}/replies`, {
+    method: 'GET',
+    headers,
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload?.error || 'Failed to fetch replies');
+  }
+
+  return payload.replies || [];
+}
+
+export async function createCommunityReply(postId: string, input: {
+  author_name: string;
+  author_avatar?: string;
+  content: string;
+}): Promise<CommunityReplyDTO> {
+  const headers = await buildEdgeHeaders(true);
+  const response = await fetch(`${edgeBaseUrl}/community/posts/${postId}/replies`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(input),
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload?.error || 'Failed to create reply');
+  }
+
+  return payload.reply;
+}
+
 // ============================================================================
 // FOUNDER API
 // ============================================================================
