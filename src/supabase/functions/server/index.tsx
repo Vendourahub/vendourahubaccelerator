@@ -50,72 +50,21 @@ const requireAuth = async (c: any, next: any) => {
     return c.json({ error: 'Unauthorized: Invalid token format' }, 401);
   }
 
-  console.log('🔑 Validating JWT token (first 50 chars):', token.substring(0, 50) + '...');
+  console.log('🔑 Validating token with Supabase (first 50 chars):', token.substring(0, 50) + '...');
 
   try {
-    // Split JWT into parts
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      console.error('❌ Invalid JWT format - expected 3 parts, got:', parts.length);
-      return c.json({ error: 'Invalid JWT format' }, 401);
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      console.error('❌ Token validation failed:', error?.message || 'No user found');
+      return c.json({ error: 'Unauthorized: Invalid or expired token' }, 401);
     }
-    
-    // Decode payload (base64url decode)
-    let payload;
-    try {
-      // Base64url to base64: replace - with +, _ with /
-      let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-      // Add padding if needed
-      while (base64.length % 4 !== 0) {
-        base64 += '=';
-      }
-      
-      // Decode and parse
-      const jsonString = atob(base64);
-      payload = JSON.parse(jsonString);
-      
-      console.log('✅ JWT decoded successfully');
-    } catch (decodeError: any) {
-      console.error('❌ JWT decode error:', decodeError.message);
-      return c.json({ error: `Invalid JWT: ${decodeError.message}` }, 401);
-    }
-    
-    console.log('🔍 JWT payload:', {
-      sub: payload.sub,
-      email: payload.email,
-      exp: payload.exp,
-      expiresAt: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'no expiry'
-    });
-    
-    // Check expiration
-    const now = Math.floor(Date.now() / 1000);
-    if (payload.exp && payload.exp < now) {
-      const expiredAt = new Date(payload.exp * 1000).toISOString();
-      const nowISO = new Date().toISOString();
-      console.error('❌ JWT expired:', { expiredAt, now: nowISO, secondsAgo: now - payload.exp });
-      return c.json({ error: 'JWT expired - please refresh your session' }, 401);
-    }
-    
-    // Validate required fields
-    if (!payload.sub || !payload.email) {
-      console.error('❌ JWT missing required fields:', { 
-        hasSub: !!payload.sub, 
-        hasEmail: !!payload.email,
-        payload: JSON.stringify(payload)
-      });
-      return c.json({ error: 'Invalid JWT: Missing required fields' }, 401);
-    }
-    
-    // Set user info from JWT payload
-    c.set('userId', payload.sub);
-    c.set('userEmail', payload.email);
-    c.set('user', {
-      id: payload.sub,
-      email: payload.email,
-      user_metadata: payload.user_metadata || {}
-    });
-    
-    console.log('✅ JWT validated successfully for user:', payload.email);
+
+    c.set('userId', user.id);
+    c.set('userEmail', user.email || '');
+    c.set('user', user);
+
+    console.log('✅ Token validated successfully for user:', user.email || user.id);
     
     await next();
   } catch (err: any) {

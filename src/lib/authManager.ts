@@ -112,6 +112,20 @@ export interface AuthResult {
   error?: string;
 }
 
+async function ensureFounderProfileForCurrentUser(): Promise<any> {
+  const { data, error } = await supabase.rpc('ensure_founder_profile');
+
+  if (error) {
+    throw new Error(error.message || 'Failed to ensure founder profile');
+  }
+
+  if (!data) {
+    throw new Error('Founder profile was not returned by ensure_founder_profile');
+  }
+
+  return data;
+}
+
 // ============================================================================
 // UNIFIED AUTHENTICATION
 // ============================================================================
@@ -125,6 +139,12 @@ export async function signUpFounder(
   metadata: any
 ): Promise<FounderAuthResult> {
   try {
+    await supabase.auth.signOut();
+    localStorage.removeItem('vendoura_admin_session');
+    localStorage.removeItem(ACTIVE_FOUNDER_IDENTITY_KEY);
+    localStorage.removeItem(ACTIVE_ROLE_KEY);
+    clearSessionContext();
+
     // Sign up with Supabase Auth
     // Disable email confirmation for now to work around rate limits
     const { data, error } = await supabase.auth.signUp({
@@ -210,29 +230,14 @@ export async function signInFounder(
     if (profileError || !profile) {
       // Try to create missing profile automatically
       console.warn('Founder profile not found, attempting to create for user:', data.user.id);
-      
-      // Create profile directly with user data from sign in
-      const { data: newProfile, error: createError } = await supabase
-        .from('founder_profiles')
-        .insert({
-          user_id: data.user.id,
-          email: data.user.email,
-          name: data.user.user_metadata?.name || '',
-          business_name: data.user.user_metadata?.business_name || '',
-          business_description: data.user.user_metadata?.business_description || '',
-          business_stage: 'ideation',
-          revenue: '0',
-          phone: '',
-          country: '',
-        })
-        .select()
-        .single();
-
-      if (createError) {
+      let newProfile: any = null;
+      try {
+        newProfile = await ensureFounderProfileForCurrentUser();
+      } catch (createError: any) {
         console.error('Profile creation error:', createError);
         return { 
           success: false, 
-          error: `Profile creation failed: ${createError.message}. Please contact support.` 
+          error: `Profile creation failed: ${createError?.message || 'Unknown error'}. Please contact support.` 
         };
       }
 
@@ -306,26 +311,12 @@ export async function createMissingFounderProfile(): Promise<FounderProfileResul
       return { success: true, data: existingProfile, error: 'Profile already exists' };
     }
 
-    // Create new founder profile with minimal data
-    const { data: newProfile, error: createError } = await supabase
-      .from('founder_profiles')
-      .insert({
-        user_id: user.id,
-        email: user.email,
-        name: user.user_metadata?.name || '',
-        business_name: user.user_metadata?.business_name || '',
-        business_description: user.user_metadata?.business_description || '',
-        business_stage: 'ideation',
-        revenue: '0',
-        phone: '',
-        country: '',
-      })
-      .select()
-      .single();
-
-    if (createError) {
+    let newProfile: any = null;
+    try {
+      newProfile = await ensureFounderProfileForCurrentUser();
+    } catch (createError: any) {
       console.error('Profile creation error:', createError);
-      return { success: false, error: `Profile creation failed: ${createError.message}` };
+      return { success: false, error: `Profile creation failed: ${createError?.message || 'Unknown error'}` };
     }
 
     return { success: true, data: newProfile };

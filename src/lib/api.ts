@@ -70,12 +70,18 @@ async function buildEdgeHeaders(requireAuth: boolean = false): Promise<Record<st
     return headers;
   }
 
-  const { data: { session }, error } = await supabase.auth.getSession();
-  if (error || !session?.access_token) {
-    throw new Error('Not authenticated');
+  const { data: sessionData, error } = await supabase.auth.getSession();
+
+  let accessToken = sessionData.session?.access_token;
+  if (!accessToken) {
+    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError || !refreshed.session?.access_token) {
+      throw new Error('Not authenticated');
+    }
+    accessToken = refreshed.session.access_token;
   }
 
-  headers.Authorization = `Bearer ${session.access_token}`;
+  headers.Authorization = `Bearer ${accessToken}`;
   return headers;
 }
 
